@@ -8,6 +8,9 @@ __pycache__/
 venv/
 .pytest_cache/
 
+# Local SQLite data (GOOGLE_CLOUD_PROJECT unset)
+backend/data/
+
 # Logs
 *.log
 

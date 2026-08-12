@@ -105,3 +105,12 @@ export interface ModelInfo {
   id: string;
   name: string;
 }
+
+export type AiKeySource = 'user' | 'env' | null;
+
+export interface AiConfigStatus {
+  models: ModelInfo[];
+  default: string;
+  configured: boolean;
+  key_source: AiKeySource;
+}

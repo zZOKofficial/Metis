@@ -1,90 +1,119 @@
-INFO:     127.0.0.1:62346 - "GET /health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49298 - "GET /api/chat/b975ad25-7331-4b00-9d5d-727537074028/history?limit=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49307 - "GET / HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49308 - "GET /favicon.ico HTTP/1.1" 404 Not Found
-INFO:     127.0.0.1:55220 - "GET /api/chat/b975ad25-7331-4b00-9d5d-727537074028/history?limit=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55221 - "OPTIONS /api/chat/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55221 - "POST /api/chat/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 500 Internal Server Error
-INFO:     127.0.0.1:55234 - "GET /api/analytics/b975ad25-7331-4b00-9d5d-727537074028/dashboard HTTP/1.1" 500 Internal Server Error
-INFO:     127.0.0.1:55235 - "GET /api/agents/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 500 Internal Server Error
-INFO:     127.0.0.1:55236 - "GET /api/agents/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 500 Internal Server Error
-INFO:     127.0.0.1:55237 - "GET /api/agents/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 500 Internal Server Error
-INFO:     127.0.0.1:55238 - "GET /api/chat/b975ad25-7331-4b00-9d5d-727537074028/history?limit=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55238 - "GET /api/chat/b975ad25-7331-4b00-9d5d-727537074028/history?limit=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55238 - "GET /api/approvals/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55238 - "GET /api/approvals/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55238 - "GET /api/agents/b975ad25-7331-4b00-9d5d-727537074028/activity?limit=100 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55238 - "GET /api/agents/b975ad25-7331-4b00-9d5d-727537074028/activity?limit=100 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55238 - "GET /api/products/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55238 - "GET /api/products/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55238 - "GET /api/orders/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55238 - "GET /api/orders/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55238 - "GET /api/customers/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55238 - "GET /api/customers/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55238 - "GET /api/analytics/b975ad25-7331-4b00-9d5d-727537074028/dashboard HTTP/1.1" 500 Internal Server Error
-INFO:     127.0.0.1:55240 - "GET /api/analytics/b975ad25-7331-4b00-9d5d-727537074028/dashboard HTTP/1.1" 500 Internal Server Error
-INFO:     127.0.0.1:55241 - "GET /api/agents/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 500 Internal Server Error
-INFO:     127.0.0.1:55242 - "GET /api/agents/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 500 Internal Server Error
-INFO:     127.0.0.1:55243 - "GET /api/agents/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 500 Internal Server Error
-INFO:     127.0.0.1:55244 - "GET /api/agents/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 500 Internal Server Error
-INFO:     127.0.0.1:55245 - "GET /api/chat/b975ad25-7331-4b00-9d5d-727537074028/history?limit=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55246 - "GET /api/chat/b975ad25-7331-4b00-9d5d-727537074028/history?limit=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55245 - "GET /api/approvals/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55246 - "GET /api/approvals/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55245 - "GET /api/agents/b975ad25-7331-4b00-9d5d-727537074028/activity?limit=100 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55246 - "GET /api/agents/b975ad25-7331-4b00-9d5d-727537074028/activity?limit=100 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55245 - "GET /api/products/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55246 - "GET /api/products/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55245 - "GET /api/orders/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55246 - "GET /api/orders/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55245 - "GET /api/customers/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55246 - "GET /api/customers/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55248 - "OPTIONS /api/customers/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55248 - "POST /api/customers/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55248 - "GET /api/customers/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55248 - "GET /api/products/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55250 - "GET /api/products/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55248 - "GET /api/orders/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55250 - "GET /api/orders/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55248 - "GET /api/agents/b975ad25-7331-4b00-9d5d-727537074028/activity?limit=100 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55250 - "GET /api/agents/b975ad25-7331-4b00-9d5d-727537074028/activity?limit=100 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55248 - "GET /api/products/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55250 - "GET /api/products/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55251 - "OPTIONS /api/products/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55251 - "POST /api/products/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55251 - "GET /api/products/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55251 - "GET /api/chat/b975ad25-7331-4b00-9d5d-727537074028/history?limit=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55253 - "GET /api/chat/b975ad25-7331-4b00-9d5d-727537074028/history?limit=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55251 - "OPTIONS /api/chat/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55251 - "POST /api/chat/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 500 Internal Server Error
-INFO:     127.0.0.1:55257 - "OPTIONS /api/chat/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55257 - "POST /api/chat/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 500 Internal Server Error
-INFO:     127.0.0.1:55259 - "GET / HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55260 - "GET /favicon.ico HTTP/1.1" 404 Not Found
-INFO:     127.0.0.1:55264 - "GET /api/agents/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 500 Internal Server Error
-INFO:     127.0.0.1:55265 - "GET /api/agents/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 500 Internal Server Error
-INFO:     127.0.0.1:55266 - "GET /api/chat/b975ad25-7331-4b00-9d5d-727537074028/history?limit=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55266 - "GET /api/chat/b975ad25-7331-4b00-9d5d-727537074028/history?limit=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55266 - "GET /api/agents/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 500 Internal Server Error
-INFO:     127.0.0.1:55267 - "GET /api/analytics/b975ad25-7331-4b00-9d5d-727537074028/dashboard HTTP/1.1" 500 Internal Server Error
-INFO:     127.0.0.1:55268 - "GET /api/analytics/b975ad25-7331-4b00-9d5d-727537074028/dashboard HTTP/1.1" 500 Internal Server Error
-INFO:     127.0.0.1:55269 - "GET /api/agents/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 500 Internal Server Error
-INFO:     127.0.0.1:55270 - "GET /api/agents/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 500 Internal Server Error
-INFO:     127.0.0.1:55271 - "GET /api/agents/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 500 Internal Server Error
-INFO:     127.0.0.1:55272 - "GET /api/chat/b975ad25-7331-4b00-9d5d-727537074028/history?limit=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55273 - "GET /api/chat/b975ad25-7331-4b00-9d5d-727537074028/history?limit=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55272 - "OPTIONS /api/chat/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55273 - "POST /api/chat/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 500 Internal Server Error
-INFO:     127.0.0.1:49293 - "GET / HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49295 - "GET /favicon.ico HTTP/1.1" 404 Not Found
-INFO:     127.0.0.1:49297 - "OPTIONS /api/chat/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49297 - "POST /api/chat/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 500 Internal Server Error
-INFO:     127.0.0.1:49317 - "GET /api/chat/b975ad25-7331-4b00-9d5d-727537074028/history?limit=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49318 - "GET / HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49319 - "GET /favicon.ico HTTP/1.1" 404 Not Found
-INFO:     127.0.0.1:49318 - "GET / HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49319 - "GET /favicon.ico HTTP/1.1" 404 Not Found
-INFO:     127.0.0.1:61885 - "OPTIONS /api/chat/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61885 - "POST /api/chat/b975ad25-7331-4b00-9d5d-727537074028 HTTP/1.1" 500 Internal Server Error
-INFO:     127.0.0.1:49286 - "GET / HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49287 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:63657 - "GET /health HTTP/1.1" 200 OK
+INFO: GOOGLE_CLOUD_PROJECT not set; using local SQLite database. Data persists across restarts.
+INFO: GOOGLE_CLOUD_PROJECT not set; using local SQLite database. Data persists across restarts.
+INFO: GOOGLE_CLOUD_PROJECT not set; using local SQLite database. Data persists across restarts.
+INFO:     127.0.0.1:63659 - "GET /api/approvals/a59d1296-d876-4318-aa94-1fb03ee4feed?status=approved HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63658 - "GET /api/approvals/a59d1296-d876-4318-aa94-1fb03ee4feed?status=pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63660 - "GET /api/approvals/a59d1296-d876-4318-aa94-1fb03ee4feed?status=rejected HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63659 - "GET /api/agents/a59d1296-d876-4318-aa94-1fb03ee4feed/activity?limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63658 - "GET /api/agents/a59d1296-d876-4318-aa94-1fb03ee4feed/activity?limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63658 - "GET /api/chat/a59d1296-d876-4318-aa94-1fb03ee4feed/history?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63662 - "GET /api/chat/a59d1296-d876-4318-aa94-1fb03ee4feed/history?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63659 - "GET /api/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63660 - "GET /api/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63666 - "OPTIONS /api/ai/config HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63666 - "POST /api/ai/config HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63666 - "GET /api/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63666 - "POST /api/ai/config/clear HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63666 - "GET /api/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63667 - "POST /api/ai/config HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63667 - "GET /api/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53423 - "GET /api/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53423 - "GET /api/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53423 - "GET /api/chat/a59d1296-d876-4318-aa94-1fb03ee4feed/history?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53425 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53426 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53429 - "GET /api/customers/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53430 - "GET /api/customers/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53429 - "GET /api/products/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53430 - "GET /api/products/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53429 - "GET /api/orders/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53430 - "GET /api/orders/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53429 - "GET /api/agents/a59d1296-d876-4318-aa94-1fb03ee4feed/activity?limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53430 - "GET /api/agents/a59d1296-d876-4318-aa94-1fb03ee4feed/activity?limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53429 - "GET /api/approvals/a59d1296-d876-4318-aa94-1fb03ee4feed?status=pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53430 - "GET /api/approvals/a59d1296-d876-4318-aa94-1fb03ee4feed?status=approved HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53433 - "GET /api/approvals/a59d1296-d876-4318-aa94-1fb03ee4feed?status=rejected HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53432 - "GET /api/approvals/a59d1296-d876-4318-aa94-1fb03ee4feed?status=rejected HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53431 - "GET /api/approvals/a59d1296-d876-4318-aa94-1fb03ee4feed?status=pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53434 - "GET /api/approvals/a59d1296-d876-4318-aa94-1fb03ee4feed?status=approved HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53429 - "GET /api/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53433 - "GET /api/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53430 - "GET /api/chat/a59d1296-d876-4318-aa94-1fb03ee4feed/history?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53432 - "GET /api/chat/a59d1296-d876-4318-aa94-1fb03ee4feed/history?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53430 - "GET /api/products/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53432 - "GET /api/products/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53430 - "GET /api/orders/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53432 - "GET /api/orders/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53430 - "GET /api/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53429 - "GET /api/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53433 - "GET /api/chat/a59d1296-d876-4318-aa94-1fb03ee4feed/history?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53432 - "GET /api/chat/a59d1296-d876-4318-aa94-1fb03ee4feed/history?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53435 - "POST /api/chat/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53435 - "GET /api/approvals/a59d1296-d876-4318-aa94-1fb03ee4feed?status=pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53439 - "GET /api/approvals/a59d1296-d876-4318-aa94-1fb03ee4feed?status=approved HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53442 - "GET /api/approvals/a59d1296-d876-4318-aa94-1fb03ee4feed?status=approved HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53443 - "GET /api/approvals/a59d1296-d876-4318-aa94-1fb03ee4feed?status=pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53440 - "GET /api/approvals/a59d1296-d876-4318-aa94-1fb03ee4feed?status=rejected HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53441 - "GET /api/approvals/a59d1296-d876-4318-aa94-1fb03ee4feed?status=rejected HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53444 - "POST /api/approvals/a59d1296-d876-4318-aa94-1fb03ee4feed/1323eff9-68d4-4724-8edf-a8826432bde5/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53444 - "GET /api/approvals/a59d1296-d876-4318-aa94-1fb03ee4feed?status=pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53446 - "GET /api/approvals/a59d1296-d876-4318-aa94-1fb03ee4feed?status=approved HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53447 - "GET /api/approvals/a59d1296-d876-4318-aa94-1fb03ee4feed?status=rejected HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53448 - "GET /api/approvals/a59d1296-d876-4318-aa94-1fb03ee4feed?status=pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53449 - "GET /api/approvals/a59d1296-d876-4318-aa94-1fb03ee4feed?status=rejected HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53450 - "GET /api/approvals/a59d1296-d876-4318-aa94-1fb03ee4feed?status=approved HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53446 - "GET /api/products/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53450 - "GET /api/products/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53446 - "GET /api/agents/a59d1296-d876-4318-aa94-1fb03ee4feed/activity?limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53450 - "GET /api/agents/a59d1296-d876-4318-aa94-1fb03ee4feed/activity?limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53446 - "GET /api/products/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53450 - "GET /api/products/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53446 - "GET /api/orders/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53450 - "GET /api/orders/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53446 - "GET /api/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53450 - "GET /api/chat/a59d1296-d876-4318-aa94-1fb03ee4feed/history?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53455 - "GET /api/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53454 - "GET /api/chat/a59d1296-d876-4318-aa94-1fb03ee4feed/history?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53458 - "GET /api/agents/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53459 - "GET /api/agents/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53459 - "GET /api/agents/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53460 - "GET /api/agents/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53461 - "GET /api/analytics/a59d1296-d876-4318-aa94-1fb03ee4feed/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53458 - "GET /api/analytics/a59d1296-d876-4318-aa94-1fb03ee4feed/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53461 - "GET /api/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53458 - "GET /api/chat/a59d1296-d876-4318-aa94-1fb03ee4feed/history?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53459 - "GET /api/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53460 - "GET /api/chat/a59d1296-d876-4318-aa94-1fb03ee4feed/history?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53460 - "GET /api/agents/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53458 - "GET /api/agents/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53458 - "GET /api/agents/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53459 - "GET /api/agents/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53460 - "GET /api/analytics/a59d1296-d876-4318-aa94-1fb03ee4feed/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53461 - "GET /api/analytics/a59d1296-d876-4318-aa94-1fb03ee4feed/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53458 - "GET /api/customers/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53460 - "GET /api/customers/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53458 - "GET /api/orders/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53460 - "GET /api/orders/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53458 - "GET /api/products/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53460 - "GET /api/products/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53458 - "GET /api/agents/a59d1296-d876-4318-aa94-1fb03ee4feed/activity?limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53460 - "GET /api/agents/a59d1296-d876-4318-aa94-1fb03ee4feed/activity?limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53458 - "GET /api/approvals/a59d1296-d876-4318-aa94-1fb03ee4feed?status=pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53460 - "GET /api/approvals/a59d1296-d876-4318-aa94-1fb03ee4feed?status=approved HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53461 - "GET /api/approvals/a59d1296-d876-4318-aa94-1fb03ee4feed?status=rejected HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53459 - "GET /api/approvals/a59d1296-d876-4318-aa94-1fb03ee4feed?status=pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53463 - "GET /api/approvals/a59d1296-d876-4318-aa94-1fb03ee4feed?status=rejected HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53462 - "GET /api/approvals/a59d1296-d876-4318-aa94-1fb03ee4feed?status=approved HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53458 - "GET /api/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53462 - "GET /api/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53460 - "GET /api/chat/a59d1296-d876-4318-aa94-1fb03ee4feed/history?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53461 - "GET /api/chat/a59d1296-d876-4318-aa94-1fb03ee4feed/history?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53460 - "GET /api/agents/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53458 - "GET /api/agents/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53458 - "GET /api/agents/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53462 - "GET /api/agents/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53460 - "GET /api/analytics/a59d1296-d876-4318-aa94-1fb03ee4feed/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53461 - "GET /api/analytics/a59d1296-d876-4318-aa94-1fb03ee4feed/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53465 - "GET /api/customers/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53466 - "GET /api/customers/a59d1296-d876-4318-aa94-1fb03ee4feed HTTP/1.1" 200 OK

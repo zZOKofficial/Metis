@@ -95,8 +95,13 @@ Provide 2-3 specific promotion ideas with reasoning."""
         )
 
         if product_id:
+            ref = (product_id or "").strip().lower()
             target_products = [
-                p for p in products if p.get("id") == product_id
+                p
+                for p in products
+                if p.get("id", "").lower() == ref
+                or p.get("id", "").lower().startswith(ref)
+                or p.get("name", "").lower() == ref
             ]
         else:
             target_products = products[:3]  # Top 3 products

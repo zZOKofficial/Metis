@@ -32,10 +32,41 @@ class GeminiService:
     ]
 
     def __init__(self):
-        if settings.GEMINI_API_KEY:
-            self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        else:
-            self.client = None
+        self._client: Optional[Any] = None
+        # None = not yet loaded from the store; '' = saved key cleared
+        self._saved_key: Optional[str] = None
+
+    def configure(self, api_key: str) -> None:
+        """Set the saved key in-process and force the client to rebuild."""
+        self._saved_key = api_key
+        self._client = None
+
+    def _load_saved_key(self) -> str:
+        try:
+            from ..services.firestore import app_state_service
+            doc = app_state_service.get('ai_config')
+            return (doc or {}).get('api_key', '') or ''
+        except Exception:
+            return ''
+
+    def _effective_key(self) -> str:
+        """Saved key wins over the env key; unset keys report as unconfigured."""
+        if self._saved_key is None:
+            self._saved_key = self._load_saved_key()
+        return self._saved_key or settings.GEMINI_API_KEY
+
+    def _ensure_client(self) -> Optional[Any]:
+        if self._client is None and self._effective_key():
+            self._client = genai.Client(api_key=self._effective_key())
+        return self._client
+
+    def is_configured(self) -> bool:
+        return bool(self._effective_key())
+
+    def key_source(self) -> Optional[str]:
+        if not self._effective_key():
+            return None
+        return 'user' if self._saved_key else 'env'
 
     @staticmethod
     def is_valid_model(model: str) -> bool:
@@ -71,7 +102,7 @@ class GeminiService:
         model: Optional[str] = None,
     ) -> str:
         """Generate text from Gemini, optionally continuing a conversation history."""
-        if not self.client:
+        if not self._effective_key():
             return "Gemini API key not configured."
 
         try:
@@ -84,7 +115,8 @@ class GeminiService:
             contents = self._format_turn(history or [])
             contents.append({'role': 'user', 'parts': [{'text': prompt}]})
 
-            response = self.client.models.generate_content(
+            client = self._ensure_client()
+            response = client.models.generate_content(
                 model=model or self.MODEL,
                 contents=contents,
                 config=config,
@@ -131,7 +163,7 @@ class GeminiService:
         version drops `thoughtSignature` when parsing responses, which makes it
         impossible to echo the required signature back on follow-up calls.
         """
-        if not settings.GEMINI_API_KEY:
+        if not self._effective_key():
             return {"text": "Gemini API key not configured.", "agent_actions": []}
 
         contents = self._format_turn(history or [])
@@ -189,7 +221,7 @@ class GeminiService:
                 url,
                 content=payload,
                 headers={
-                    "x-goog-api-key": settings.GEMINI_API_KEY,
+                    "x-goog-api-key": self._effective_key(),
                     "Content-Type": "application/json",
                 },
                 timeout=120,

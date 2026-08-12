@@ -53,8 +53,19 @@ export default function ApprovalsPage() {
         loadApprovals();
         notifyDataChanged();
       }, 950);
-    } catch {
-      alert(`Couldn't ${verdict === 'approved' ? 'approve' : 'reject'} this action. Make sure the backend is running.`);
+    } catch (err) {
+      let message = `Couldn't ${verdict === 'approved' ? 'approve' : 'reject'} this action. Make sure the backend is running.`;
+      const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
+      if (typeof detail === 'string') {
+        message = detail;
+      } else if (detail && typeof detail === 'object') {
+        const obj = detail as { message?: unknown; execution?: { error?: string } };
+        const executionError = obj.execution?.error;
+        message = executionError
+          ? `${String(obj.message ?? 'Action failed.')} — ${executionError}`
+          : String(obj.message ?? 'Action failed.');
+      }
+      alert(message);
     } finally {
       setBusy(null);
     }

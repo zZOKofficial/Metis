@@ -89,6 +89,51 @@ Communication style: Friendly, helpful, knowledgeable about the products."""
             return product
         return None
 
+    def _normalize_ref(self, ref: str) -> str:
+        import re
+        return re.sub(r'[^a-z0-9]', '', ref.lower())
+
+    def resolve_customer(self, customer_ref: str) -> Optional[dict[str, Any]]:
+        """Resolve a customer by full ID, ID prefix, or name (case-insensitive)."""
+        ref = (customer_ref or "").strip()
+        if not ref:
+            return None
+        customer = customer_service.get(ref)
+        if customer and customer.get("business_id") == self.business_id:
+            return customer
+        ref_lower = ref.lower()
+        customers = customer_service.list_all(
+            [("business_id", "==", self.business_id)]
+        )
+        for c in customers:
+            if c.get("id", "").lower().startswith(ref_lower) or c.get("name", "").lower() == ref_lower:
+                return c
+        return None
+
+    def resolve_product(self, product_ref: str) -> Optional[dict[str, Any]]:
+        """Resolve a product by full ID, ID prefix, or name (case-insensitive)."""
+        ref = (product_ref or "").strip()
+        if not ref:
+            return None
+        product = self.get_product(ref)
+        if product:
+            return product
+        ref_lower = ref.lower()
+        products = product_service.list_all(
+            [("business_id", "==", self.business_id)]
+        )
+        for p in products:
+            if p.get("id", "").lower().startswith(ref_lower) or p.get("name", "").lower() == ref_lower:
+                return p
+        # Fuzzy fallback: strip punctuation/prefixes, e.g. "prod_batmobile" -> "Bat-Mobile"
+        ref_norm = self._normalize_ref(ref)
+        if len(ref_norm) >= 4:
+            for p in products:
+                name_norm = self._normalize_ref(p.get("name", ""))
+                if name_norm and (name_norm in ref_norm or ref_norm in name_norm):
+                    return p
+        return None
+
     def check_inventory(self, product_id: str) -> dict[str, Any]:
         """Check inventory for a specific product."""
         product = self.get_product(product_id)
@@ -138,12 +183,13 @@ Respond with ONLY a JSON array of product IDs, like: ["id1", "id2", "id3"]"""
         items: list[dict[str, Any]],
     ) -> dict[str, Any]:
         """Create a new order after verifying stock."""
-        customer = customer_service.get(customer_id)
+        customer = self.resolve_customer(customer_id)
         if not customer:
             return {
                 "success": False,
                 "error": f"Customer {customer_id} not found.",
             }
+        customer_id = customer["id"]
 
         order_items = []
         total_amount = 0.0
@@ -154,7 +200,7 @@ Respond with ONLY a JSON array of product IDs, like: ["id1", "id2", "id3"]"""
                     "success": False,
                     "error": "Each order item must include a product_id.",
                 }
-            product = self.get_product(item["product_id"])
+            product = self.resolve_product(item["product_id"])
             if not product:
                 return {
                     "success": False,
@@ -193,10 +239,10 @@ Respond with ONLY a JSON array of product IDs, like: ["id1", "id2", "id3"]"""
         order_id = order_service.create(order_data)
 
         # Update inventory
-        for item in items:
-            product = self.get_product(item["product_id"])
+        for item in order_items:
+            product = self.resolve_product(item["product_id"])
             if product:
-                new_stock = product.get("stock", 0) - item.get("quantity", 1)
+                new_stock = product.get("stock", 0) - item["quantity"]
                 product_service.update(product["id"], {"stock": max(0, new_stock)})
 
         # Update customer stats
@@ -257,7 +303,7 @@ Important: Only mention products from the list above. Use their exact names and 
         lines = []
         for p in products:
             lines.append(
-                f"- ID: {p['id'][:8]} | {p['name']} | "
+                f"- ID: {p['id']} | {p['name']} | "
                 f"৳{p['price']:,.2f} | Stock: {p.get('stock', 0)} | "
                 f"Category: {p.get('category', 'N/A')}"
             )

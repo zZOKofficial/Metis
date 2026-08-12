@@ -172,7 +172,7 @@ Low Stock Products ({len(low_stock)}):
 {chr(10).join(f"  - {p['name']}: {p['stock']} remaining" for p in low_stock[:5])}
 
 Recent Orders:
-{chr(10).join(f"  - Order {o['id'][:8]}: ৳{o['total_amount']:,.2f} ({o['status']})" for o in orders[:5])}
+{chr(10).join(f"  - Order {o['id']}: ৳{o['total_amount']:,.2f} ({o['status']})" for o in orders[:5])}
 
 Provide a 3-4 sentence summary with one actionable recommendation."""
 

@@ -11,6 +11,7 @@ from ..models.schemas import (
     OrderStatus,
     AgentType,
     RiskLevel,
+    AiConfigRequest,
 )
 from ..services.firestore import (
     business_service,
@@ -20,6 +21,7 @@ from ..services.firestore import (
     agent_log_service,
     approval_service,
     chat_service,
+    app_state_service,
 )
 
 router = APIRouter()
@@ -191,12 +193,38 @@ MAX_CHAT_HISTORY = 100
 CHAT_CONTEXT_TURNS = 20
 
 
+# === AI Config ===
+
+@router.post('/ai/config')
+def save_ai_config(data: AiConfigRequest):
+    from ..services.gemini import gemini_service
+    key = data.api_key.strip()
+    if not key:
+        raise HTTPException(status_code=400, detail='API key cannot be empty.')
+    app_state_service.create({'api_key': key}, doc_id='ai_config')
+    gemini_service.configure(key)
+    return {'configured': True, 'key_source': 'user'}
+
+
+@router.post('/ai/config/clear')
+def clear_ai_config():
+    from ..services.gemini import gemini_service
+    app_state_service.delete('ai_config')
+    gemini_service.configure('')
+    return {
+        'configured': gemini_service.is_configured(),
+        'key_source': gemini_service.key_source(),
+    }
+
+
 @router.get('/models')
 def list_models():
     from ..services.gemini import gemini_service
     return {
         'models': gemini_service.AVAILABLE_MODELS,
         'default': gemini_service.MODEL,
+        'configured': gemini_service.is_configured(),
+        'key_source': gemini_service.key_source(),
     }
 
 
@@ -254,15 +282,15 @@ def chat_with_manager(business_id: str, data: ChatRequest):
     low_stock = [p for p in products if p.get('stock', 0) <= 5]
 
     recent_orders = '\n'.join(
-        f'  - Order {str(o.get("id", ""))[:8]}: ৳{float(o.get("total_amount") or 0):,.2f} ({o.get("status", "unknown")})'
+        f'  - Order {str(o.get("id", ""))}: ৳{float(o.get("total_amount") or 0):,.2f} ({o.get("status", "unknown")})'
         for o in orders[:5]
     )
     product_list = '\n'.join(
-        f'  - {p.get("name", "Unknown")}: ৳{float(p.get("price") or 0):,.2f} (Stock: {p.get("stock", 0)})'
+        f'  - {p.get("name", "Unknown")}: ৳{float(p.get("price") or 0):,.2f} (ID: {str(p.get("id", ""))}, Stock: {p.get("stock", 0)})'
         for p in products[:10]
     )
     customer_list = '\n'.join(
-        f'  - {c.get("name", "Unknown")} (ID: {str(c.get("id", ""))[:8]})'
+        f'  - {c.get("name", "Unknown")} (ID: {str(c.get("id", ""))})'
         for c in customers[:10]
     )
 

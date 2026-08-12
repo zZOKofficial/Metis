@@ -2,10 +2,11 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useBusiness } from '@/lib/BusinessContext';
-import api from '@/lib/api';
+import api, { fetchAiConfig, saveAiConfig } from '@/lib/api';
 import { notifyDataChanged } from '@/lib/refresh';
-import { ChatMessage, ModelInfo } from '@/types';
+import { AiConfigStatus, ChatMessage, ModelInfo } from '@/types';
 import Markdown from '@/components/Markdown';
+import GeminiKeyPanel from '@/components/GeminiKeyPanel';
 import { AgentDot } from '@/components/ui';
 
 const GREETING: ChatMessage = {
@@ -16,6 +17,7 @@ const GREETING: ChatMessage = {
 const MAX_SAVED_MESSAGES = 200;
 const DEFAULT_MODEL = 'gemini-flash-lite-latest';
 const MODEL_STORAGE_KEY = 'metis_chat_model';
+const VERIFICATION_STORAGE_KEY = 'metis_gemini_verified';
 
 const storageKey = (businessId: string) => `metis_chat_${businessId}`;
 
@@ -40,6 +42,34 @@ function saveHistory(businessId: string, messages: ChatMessage[]) {
   }
 }
 
+function isErrorReply(content: string): boolean {
+  return content.startsWith('AI generation error') || /api[ _-]?key/i.test(content);
+}
+
+function loadVerified(): boolean {
+  try {
+    return localStorage.getItem(VERIFICATION_STORAGE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function clearVerified() {
+  try {
+    localStorage.removeItem(VERIFICATION_STORAGE_KEY);
+  } catch {
+    // Ignore storage failures
+  }
+}
+
+function setVerifiedFlag() {
+  try {
+    localStorage.setItem(VERIFICATION_STORAGE_KEY, '1');
+  } catch {
+    // Ignore storage failures
+  }
+}
+
 export default function ChatPage() {
   const { businessId } = useBusiness();
   const [messages, setMessages] = useState<ChatMessage[]>(() => (businessId ? loadHistory(businessId) : [GREETING]));
@@ -53,30 +83,76 @@ export default function ChatPage() {
       return DEFAULT_MODEL;
     }
   });
+  const [verified, setVerified] = useState(loadVerified);
+  const [aiStatus, setAiStatus] = useState<AiConfigStatus | null>(null);
+  const [configOpen, setConfigOpen] = useState(false);
+  const [gateKey, setGateKey] = useState('');
+  const [gateSaving, setGateSaving] = useState(false);
+  const [gateError, setGateError] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const applyConfig = (status: AiConfigStatus) => {
+    setAiStatus(status);
+    setModels(status.models);
+    if (status.models.length > 0 && !status.models.some((m) => m.id === model)) {
+      setModel(status.default || DEFAULT_MODEL);
+    }
+  };
+
   useEffect(() => {
-    api
-      .get('/models')
-      .then((res) => {
-        const available: ModelInfo[] = res.data.models || [];
-        setModels(available);
-        if (available.length > 0 && !available.some((m) => m.id === model)) {
-          setModel(res.data.default || DEFAULT_MODEL);
-        }
+    let cancelled = false;
+    fetchAiConfig()
+      .then((status) => {
+        if (!cancelled) applyConfig(status);
       })
       .catch(() => {
-        // Backend unavailable; fall back to the default model.
+        if (!cancelled) {
+          setAiStatus({ models: [], default: DEFAULT_MODEL, configured: false, key_source: null });
+        }
       });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value;
+  const refreshAiStatus = async () => {
+    try {
+      const status = await fetchAiConfig();
+      applyConfig(status);
+    } catch {
+      // Keep the current status when the backend is unreachable
+    }
+  };
+
+  const handleConfigApplied = () => {
+    clearVerified();
+    setVerified(false);
+    refreshAiStatus();
+  };
+
+  const handleModelChange = (value: string) => {
     setModel(value);
     try {
       localStorage.setItem(MODEL_STORAGE_KEY, value);
     } catch {
       // Ignore storage failures
+    }
+  };
+
+  const connectFromGate = async () => {
+    const key = gateKey.trim();
+    if (!key || gateSaving) return;
+    setGateSaving(true);
+    setGateError('');
+    try {
+      await saveAiConfig(key);
+      setGateKey('');
+      await handleConfigApplied();
+    } catch {
+      setGateError("Couldn't reach the backend — is it running?");
+    } finally {
+      setGateSaving(false);
     }
   };
 
@@ -127,6 +203,10 @@ export default function ChatPage() {
         model,
         history: fullHistory.slice(0, -1).map((m) => ({ role: m.role, content: m.content, timestamp: m.timestamp })),
       });
+      if (!isErrorReply(res.data.message || '')) {
+        setVerifiedFlag();
+        setVerified(true);
+      }
       if (Array.isArray(res.data.history) && res.data.history.length > 0) {
         setMessages(res.data.history.map((m: any) => ({ role: m.role, content: m.content, timestamp: m.timestamp })));
       } else {
@@ -149,6 +229,8 @@ export default function ChatPage() {
     );
   }
 
+  const gated = aiStatus !== null && !aiStatus.configured;
+
   return (
     <div className='h-full flex flex-col' style={{ minHeight: 'calc(100vh - 100px)' }}>
       <div className='flex items-end justify-between gap-3 flex-wrap mb-5'>
@@ -156,91 +238,147 @@ export default function ChatPage() {
           <p className='kicker mb-1.5'>Inter-office correspondence · confidential</p>
           <h1 className='font-display text-3xl sm:text-4xl font-bold tracking-tight'>Business Chat</h1>
         </div>
-        <div className='flex items-center gap-3'>
-          <label htmlFor='chat-model' className='kicker'>
-            Model
-          </label>
-          <select id='chat-model' value={model} onChange={handleModelChange} disabled={loading} className='field !w-auto cursor-pointer text-sm'>
-            {models.length === 0 && <option value={model}>{model}</option>}
-            {models.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        <GeminiKeyPanel
+          open={configOpen}
+          onOpenChange={setConfigOpen}
+          models={models}
+          model={model}
+          onModelChange={handleModelChange}
+          keySource={aiStatus ? aiStatus.key_source : null}
+          verified={verified}
+          onSaved={handleConfigApplied}
+          onCleared={handleConfigApplied}
+        />
       </div>
 
-      <div className='ledger flex flex-col min-h-0 flex-1'>
-        <div className='flex items-center justify-between border-b border-[var(--rule)] px-5 py-3'>
-          <span className='flex items-center gap-2.5'>
-            <AgentDot type='manager' />
-            <span className='font-display text-sm font-semibold'>Manager Agent</span>
-          </span>
-          <span className='font-mono text-[10px] uppercase tracking-[0.18em] text-ok'>● on duty</span>
-        </div>
-
-        <div className='flex-1 overflow-y-auto p-5 sm:p-7 space-y-6' aria-live='polite'>
-          {messages.map((msg, i) => (
-            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              {msg.role === 'user' ? (
-                <div className='max-w-[85%] sm:max-w-[70%] bg-ink text-card px-4 py-3 shadow-print-sm'>
-                  <p className='font-mono text-[10px] uppercase tracking-[0.16em] text-card/50 mb-1.5'>
-                    You · the owner
-                  </p>
-                  <p className='text-[15px] leading-relaxed whitespace-pre-wrap'>{msg.content}</p>
+      {gated ? (
+        <div className='flex-1 flex items-center justify-center min-h-0'>
+          <div className='max-w-xl w-full'>
+            <div className='ledger p-6 sm:p-10'>
+              <p className='kicker mb-1.5'>Form no. 02 · utility connection</p>
+              <h2 className='font-display text-2xl sm:text-3xl font-bold tracking-tight'>
+                The workforce needs a Gemini connection to operate
+              </h2>
+              <p className='text-ink-soft text-[15px] mt-3 leading-relaxed'>
+                Paste your Gemini API key to switch on the manager and the crew. The key is kept on the server,
+                never in the ledger, and takes effect immediately.
+              </p>
+              <form
+                className='mt-7'
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  connectFromGate();
+                }}
+              >
+                <label className='label mb-1' htmlFor='gate-key'>
+                  Gemini API key
+                </label>
+                <input
+                  id='gate-key'
+                  type='password'
+                  className='field font-mono'
+                  value={gateKey}
+                  onChange={(e) => setGateKey(e.target.value)}
+                  placeholder='Paste your Gemini API key'
+                  autoComplete='off'
+                  spellCheck={false}
+                />
+                <div className='flex justify-end mt-5'>
+                  <button type='submit' disabled={gateSaving || !gateKey.trim()} className='btn btn-primary'>
+                    {gateSaving ? 'Connecting…' : 'Stamp & connect'}
+                  </button>
                 </div>
-              ) : (
-                <div className='max-w-[85%] sm:max-w-[75%] bg-card border border-ink border-l-[3px] border-l-carbon px-4 py-3 shadow-print-sm'>
-                  <p className='font-mono text-[10px] uppercase tracking-[0.16em] text-carbon mb-1.5'>
-                    From the manager
+                {gateError && (
+                  <p className='font-mono text-[11px] text-[var(--stamp)] mt-3' role='alert'>
+                    {gateError}
                   </p>
-                  <Markdown content={msg.content} />
-                </div>
-              )}
+                )}
+              </form>
             </div>
-          ))}
-          {loading && (
-            <div className='flex justify-start'>
-              <div className='bg-card border border-ink border-l-[3px] border-l-carbon px-4 py-3 shadow-print-sm'>
-                <div className='flex gap-1.5 py-0.5'>
-                  <span className='w-1.5 h-1.5 bg-ink/50 blink'></span>
-                  <span className='w-1.5 h-1.5 bg-ink/50 blink' style={{ animationDelay: '0.2s' }}></span>
-                  <span className='w-1.5 h-1.5 bg-ink/50 blink' style={{ animationDelay: '0.4s' }}></span>
+          </div>
+        </div>
+      ) : (
+        <div className='ledger flex flex-col min-h-0 flex-1'>
+          <div className='flex items-center justify-between border-b border-[var(--rule)] px-5 py-3'>
+            <span className='flex items-center gap-2.5'>
+              <AgentDot type='manager' />
+              <span className='font-display text-sm font-semibold'>Manager Agent</span>
+            </span>
+            <span className='font-mono text-[10px] uppercase tracking-[0.18em] text-ok'>● on duty</span>
+          </div>
+
+          <div className='flex-1 overflow-y-auto p-5 sm:p-7 space-y-6' aria-live='polite'>
+            {messages.map((msg, i) => (
+              <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                {msg.role === 'user' ? (
+                  <div className='max-w-[85%] sm:max-w-[70%] bg-ink text-card px-4 py-3 shadow-print-sm'>
+                    <p className='font-mono text-[10px] uppercase tracking-[0.16em] text-card/50 mb-1.5'>
+                      You · the owner
+                    </p>
+                    <p className='text-[15px] leading-relaxed whitespace-pre-wrap'>{msg.content}</p>
+                  </div>
+                ) : isErrorReply(msg.content) ? (
+                  <div className='max-w-[85%] sm:max-w-[75%] bg-card border border-ink border-l-[3px] border-l-[var(--stamp)] px-4 py-3 shadow-print-sm'>
+                    <p className='font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--stamp)] mb-1.5'>
+                      Ticket no. {String(i + 1).padStart(2, '0')} · connection fault
+                    </p>
+                    <p className='text-[15px] leading-relaxed whitespace-pre-wrap'>{msg.content}</p>
+                    <button type='button' onClick={() => setConfigOpen(true)} className='btn btn-ghost mt-3 !py-2 !px-3 text-[11px]'>
+                      Connect API →
+                    </button>
+                  </div>
+                ) : (
+                  <div className='max-w-[85%] sm:max-w-[75%] bg-card border border-ink border-l-[3px] border-l-carbon px-4 py-3 shadow-print-sm'>
+                    <p className='font-mono text-[10px] uppercase tracking-[0.16em] text-carbon mb-1.5'>
+                      From the manager
+                    </p>
+                    <Markdown content={msg.content} />
+                  </div>
+                )}
+              </div>
+            ))}
+            {loading && (
+              <div className='flex justify-start'>
+                <div className='bg-card border border-ink border-l-[3px] border-l-carbon px-4 py-3 shadow-print-sm'>
+                  <div className='flex gap-1.5 py-0.5'>
+                    <span className='w-1.5 h-1.5 bg-ink/50 blink'></span>
+                    <span className='w-1.5 h-1.5 bg-ink/50 blink' style={{ animationDelay: '0.2s' }}></span>
+                    <span className='w-1.5 h-1.5 bg-ink/50 blink' style={{ animationDelay: '0.4s' }}></span>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
 
-        <div className='border-t border-[var(--rule)] p-4 sm:p-5'>
-          <form
-            className='flex items-end gap-3'
-            onSubmit={(e) => {
-              e.preventDefault();
-              sendMessage();
-            }}
-          >
-            <div className='flex-1 min-w-0'>
-              <label htmlFor='chat-input' className='kicker block mb-1'>
-                Your instruction to the manager
-              </label>
-              <input
-                id='chat-input'
-                className='field !border-b-2'
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder='How is my business doing today?'
-                disabled={loading}
-              />
-            </div>
-            <button type='submit' disabled={loading || !input.trim()} className='btn btn-primary shrink-0'>
-              Send →
-            </button>
-          </form>
+          <div className='border-t border-[var(--rule)] p-4 sm:p-5'>
+            <form
+              className='flex items-end gap-3'
+              onSubmit={(e) => {
+                e.preventDefault();
+                sendMessage();
+              }}
+            >
+              <div className='flex-1 min-w-0'>
+                <label htmlFor='chat-input' className='kicker block mb-1'>
+                  Your instruction to the manager
+                </label>
+                <input
+                  id='chat-input'
+                  className='field !border-b-2'
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder='How is my business doing today?'
+                  disabled={loading}
+                />
+              </div>
+              <button type='submit' disabled={loading || !input.trim()} className='btn btn-primary shrink-0'>
+                Send →
+              </button>
+            </form>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

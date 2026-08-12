@@ -127,7 +127,7 @@ frontend/src/
 - Node.js 20+
 - (Optional, for real persistence & AI) Google Cloud account with **Firestore** and a **Gemini API key**
 
-> **No Google Cloud account?** The backend runs fully with an in-memory database, and the chat endpoint works if you supply a `GEMINI_API_KEY`. Without a key, the chat returns a "not configured" message — everything else works.
+> **No Google Cloud account?** The backend runs fully on a local SQLite database (`backend/data/metis.db`) so all data survives restarts, and the chat endpoint works if you supply a `GEMINI_API_KEY` (or save one from the Chat page). Without a key, the chat returns a "not configured" message — everything else works.
 
 ### 1. Backend
 
@@ -162,7 +162,7 @@ The frontend talks to the backend via `NEXT_PUBLIC_API_URL` (defaults to `http:/
 
 | Variable | Purpose |
 |----------|---------|
-| `GOOGLE_CLOUD_PROJECT` | Firestore project ID (empty → in-memory DB) |
+| `GOOGLE_CLOUD_PROJECT` | Firestore project ID (empty → local SQLite DB) |
 | `GOOGLE_APPLICATION_CREDENTIALS` | Path to a service-account key |
 | `GEMINI_API_KEY` | Gemini API key for the AI agents |
 | `CORS_ORIGINS` | Comma-separated list of allowed frontend origins |

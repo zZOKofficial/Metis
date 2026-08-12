@@ -229,6 +229,12 @@ class ChatResponse(BaseModel):
     history: list[ChatMessage] = Field(default_factory=list)
 
 
+# === AI Config ===
+
+class AiConfigRequest(BaseModel):
+    api_key: str = ""
+
+
 # === Analytics ===
 
 class DashboardMetrics(BaseModel):
