@@ -1,14 +1,14 @@
 # METIS — Status Report
 
-**Date:** 2026-08-12 (updated 2026-08-12)
+**Date:** 2026-08-12 (updated 2026-08-12 — METIS 0.3.0)
 **Auditor:** Automated codebase analysis
-**Overall Completion:** ~77%
+**Overall Completion:** ~80%
 
 ---
 
 ## 1. Executive Summary
 
-METIS is a full-stack AI-powered business management platform built with Next.js (frontend), FastAPI (backend), Google Gemini AI, and Firestore. The project has a well-structured monorepo with clean separation of concerns. The core backend infrastructure (Milestones 0-4) and all frontend pages (Milestone 6) are complete. **All previously reported critical frontend-backend integration gaps are now resolved**: business setup persists to the backend, the business ID survives page reloads, the API base URL is environment-configurable, and every frontend page now calls the real API with loading and error states. **Chat conversations are now persisted to Firestore with multi-turn Gemini context and a history endpoint** — the Business Chat survives page reloads and the Manager Agent remembers prior turns. **A 2026-08-12 bug-fix pass resolved 15 issues across backend, frontend, deployment, and docs** (see §3). Remaining work is concentrated in Milestones 7-10: full E2E scenario verification (plus a customer-facing conversation UI), auth, testing, and deployment configuration.
+METIS is a full-stack AI-powered business management platform built with Next.js (frontend), FastAPI (backend), Google Gemini AI, and Firestore. The project has a well-structured monorepo with clean separation of concerns. The core backend infrastructure (Milestones 0-4) and all frontend pages (Milestone 6) are complete. **All previously reported critical frontend-backend integration gaps are now resolved**: business setup persists to the backend, the business ID survives page reloads, the API base URL is environment-configurable, and every frontend page now calls the real API with loading and error states. **Chat conversations are persisted with multi-turn Gemini context and a history endpoint** — the Business Chat survives page reloads and the Manager Agent remembers prior turns. **METIS 0.3.0 (2026-08-12)** adds local **SQLite persistence** (`backend/data/metis.db` — data survives restarts without Google Cloud), **in-app Gemini API key management** in the Chat page, and fixes **approval execution failures** (staged approvals no longer fail on truncated/hallucinated IDs, and the Approval Center surfaces the real execution error instead of a generic message). Remaining work is concentrated in Milestones 7-10: full E2E scenario verification (plus a customer-facing conversation UI), auth, testing, and deployment configuration.
 
 ---
 
@@ -18,10 +18,10 @@ METIS is a full-stack AI-powered business management platform built with Next.js
 | Component | Status | File |
 |-----------|--------|------|
 | FastAPI app with CORS, middleware, routers | ✅ Working | `backend/src/main.py` |
-| Firestore service with in-memory fallback | ✅ Working | `backend/src/services/firestore.py` |
+| Firestore service with local SQLite fallback (`backend/data/metis.db`, persistent) | ✅ Working | `backend/src/services/firestore.py` `SqliteDB` |
 | Gemini AI service wrapper | ✅ Working | `backend/src/services/gemini.py` |
 | Pydantic v2 data models (incl. chat schemas) | ✅ Working | `backend/src/models/schemas.py` |
-| Environment configuration | ✅ Working | `backend/src/core/config.py` |
+| Environment configuration | ✅ Working | `backend/src/core/config.py` *(0.3.0: `APP_VERSION=0.3.0`)* |
 | Health check endpoint | ✅ Working | `backend/src/main.py` |
 
 ### Agent Framework
@@ -30,9 +30,9 @@ METIS is a full-stack AI-powered business management platform built with Next.js
 | BaseAgent with tools, permissions, memory | ✅ Working | `backend/src/agents/base.py` |
 | Agent registry (singleton factory) | ✅ Working | `backend/src/agents/registry.py` |
 | Manager Agent (orchestrator) | ✅ Working | `backend/src/agents/manager.py` |
-| Sales Agent (products, orders) | ✅ Working | `backend/src/agents/sales.py` |
+| Sales Agent (products, orders) | ✅ Working | `backend/src/agents/sales.py` *(0.3.0: reference resolution by ID / prefix / name, case-insensitive + fuzzy)* |
 | Support Agent (FAQs, complaints) | ✅ Working | `backend/src/agents/support.py` |
-| Marketing Agent (campaigns, content) | ✅ Working | `backend/src/agents/marketing.py` |
+| Marketing Agent (campaigns, content) | ✅ Working | `backend/src/agents/marketing.py` *(0.3.0: campaign product lookup tolerant of prefix/name)* |
 | Operations Agent (orders, inventory) | ✅ Working | `backend/src/agents/operations.py` |
 | Analytics Agent (metrics, insights) | ✅ Working | `backend/src/agents/analytics.py` |
 
@@ -49,6 +49,8 @@ METIS is a full-stack AI-powered business management platform built with Next.js
 | `GET /api/chat/{business_id}/history` | ✅ Implemented (persisted, multi-turn) |
 | `POST /api/chat/{business_id}` | ✅ Implemented (persists turns, returns full history) |
 | `GET/POST /api/approvals/{business_id}` | ✅ Implemented |
+| `POST /api/approvals/{business_id}/{id}/approve` | ✅ Implemented *(0.3.0: executes staged actions with resolved references; failures return real error)* |
+| `POST /api/approvals/{business_id}/{id}/reject` | ✅ Implemented |
 | `GET /api/analytics/{business_id}/dashboard` | ✅ Implemented |
 | `GET /api/analytics/{business_id}/revenue` | ✅ Implemented (period filter: `all`/`today`/`7d`/`30d`) |
 | `GET /api/analytics/{business_id}/top-products` | ✅ Implemented |
@@ -61,14 +63,15 @@ METIS is a full-stack AI-powered business management platform built with Next.js
 | Dashboard | ✅ Implemented | `frontend/src/app/page.tsx` |
 | Agent Center | ✅ Implemented | `frontend/src/app/agents/page.tsx` |
 | Business Chat | ✅ Implemented | `frontend/src/app/chat/page.tsx` |
-| Approval Center | ✅ Implemented | `frontend/src/app/approvals/page.tsx` |
+| Approval Center | ✅ Implemented *(0.3.0: approve/reject alerts show the real backend execution error)* | `frontend/src/app/approvals/page.tsx` |
 | Activity Feed | ✅ Implemented | `frontend/src/app/activity/page.tsx` |
 | Products | ✅ Implemented | `frontend/src/app/products/page.tsx` |
 | Orders | ✅ Implemented | `frontend/src/app/orders/page.tsx` |
 | Customers | ✅ Implemented | `frontend/src/app/customers/page.tsx` |
 | Setup Wizard | ✅ Implemented | `frontend/src/components/SetupWizard.tsx` |
-| Sidebar Navigation | ✅ Implemented | `frontend/src/components/Sidebar.tsx` |
+| Sidebar Navigation | ✅ Implemented *(0.3.0: `v0.3.0` in footer)* | `frontend/src/components/Sidebar.tsx` |
 | Header | ✅ Implemented | `frontend/src/components/Header.tsx` |
+| Gemini Key Panel (set/clear API key in-app) | ✅ Implemented *(0.3.0)* | `frontend/src/components/GeminiKeyPanel.tsx` |
 
 ### Frontend-Backend Integration (fixed since 2026-08-11)
 | Component | Status | File |
@@ -100,6 +103,16 @@ METIS is a full-stack AI-powered business management platform built with Next.js
 >
 > **Fixed 2026-08-12 (evening):** `Sales/Support/Marketing/Operations/AnalyticsAgent` were missing `__init__` (registry calls like `SalesAgent(business_id)` mis-bound `business_id` to `agent_type` → 500 on `/api/agents`, `/api/analytics`, chat). `None`-business guard added to chat route and `produce_summary` (stale business ID no longer 500s). Gemini payload format fixed for google-genai 1.0.0 (`parts` must be `[{'text': ...}]`, not `['str']`).
 
+### Fixed 2026-08-12 (0.3.0 — approval execution + persistence)
+
+| # | Area | Issue | Fixed |
+|---|------|-------|-------|
+| 1 | Backend | Staged approvals failed on truncated IDs: Gemini received only 8-char ID prefixes (`p['id'][:8]`, `[:8]` in chat prompt) and echoed them back to `create_order` → `Customer f143b951 not found` | ✅ Full IDs now shown to the model (`backend/src/api/routes.py`, `backend/src/agents/sales.py`, `manager.py`) |
+| 2 | Backend | Staged approvals failed on hallucinated references (`prod_batmobile`, product *names* instead of UUIDs) | ✅ `SalesAgent.resolve_customer`/`resolve_product` + `MarketingAgent.create_campaign` match by ID, prefix, or name — case-insensitive with fuzzy fallback (`backend/src/agents/sales.py`, `marketing.py`) |
+| 3 | Frontend | Approval Center showed "Make sure the backend is running" even when the backend replied with a real execution error (400 with `detail.execution`) | ✅ Alert now surfaces the actual error, e.g. `Action could not be executed. — Product prod_batmobile not found.` (`frontend/src/app/approvals/page.tsx`) |
+| 4 | Persistence | In-memory DB lost all data on restart | ✅ Local `SqliteDB` (`backend/data/metis.db`) — schema + API mirror Firestore; data survives restarts (`backend/src/services/firestore.py`) |
+| 5 | Ops | `/health` still reported `0.2.0` (stale `.env` pinned `APP_VERSION=0.2.0`, overriding `config.py`); stale uvicorn processes served old code | ✅ `.env` → `APP_VERSION=0.3.0`; backend restarted clean (`/health` → 0.3.0) |
+
 ### Fixed 2026-08-12 (bug-fix pass — 15 issues)
 
 | # | Area | Issue | Fixed |
@@ -125,6 +138,9 @@ METIS is a full-stack AI-powered business management platform built with Next.js
 ### New Since 2026-08-11 (2026-08-12 update)
 | Component | Status | File |
 |-----------|--------|------|
+| Local SQLite persistence (`backend/data/metis.db`; data survives restarts) | ✅ Done (0.3.0) | `backend/src/services/firestore.py` |
+| Gemini API key set/clear from Chat page | ✅ Done (0.3.0) | `frontend/src/components/GeminiKeyPanel.tsx`, `frontend/src/lib/api.ts` |
+| `/api/models`, `/api/ai/config`, `/api/ai/config/clear` endpoints | ✅ Done (0.3.0) | `backend/src/api/routes.py` |
 | Chat message persistence (`chat_messages` collection, user + assistant turns) | ✅ Done | `backend/src/services/firestore.py` |
 | `GET /api/chat/{business_id}/history` — server-side history endpoint | ✅ Done | `backend/src/api/routes.py` |
 | Chat endpoint persists turns, seeds history, trims to 100 messages, returns synced history | ✅ Done | `backend/src/api/routes.py` |
@@ -155,10 +171,11 @@ METIS is a full-stack AI-powered business management platform built with Next.js
 
 ### Milestone 7 — Partial (integration unblocked)
 - Core 12-step flow is wired: business setup, products, orders, approvals, chat, and activity all persist through the backend API
-- **Chat flow (steps 8-9) upgraded**: conversation history persists to Firestore, the Manager Agent gets the last 20 turns as multi-turn Gemini context, and the chat UI syncs with the server
+- **Chat flow (steps 8-9) upgraded**: conversation history persists, the Manager Agent gets the last 20 turns as multi-turn Gemini context, and the chat UI syncs with the server
+- **Approval execution fixed (0.3.0)**: staged approvals now execute even when Gemini references truncated/hallucinated IDs; failures show the real error
 - **Customer-facing interface for simulated conversations not built**
 - Full 12-step scenario not yet verified end-to-end in a single pass
-- Campaign creation flow not exposed in the UI (Marketing Agent exists on the backend)
+- Campaign creation flow partially exposed (via chat + Approval Center; no dedicated campaign UI)
 
 ### Milestone 8 — Not Started
 - Firebase Auth integration
@@ -183,7 +200,7 @@ METIS is a full-stack AI-powered business management platform built with Next.js
 ## 5. Recommended Next Steps
 
 ### Priority 1 — Critical Fixes
-1. **Verify E2E demo scenario** — Run the 12-step flow end-to-end against the real backend
+1. **Verify E2E demo scenario** — Run the 12-step flow end-to-end against the real backend (approval execution is now reliable — 0.3.0)
 2. **Build customer-facing conversation UI** — Simulated customer → Sales Agent interface for the demo
 
 ### Priority 2 — Testing Foundation
@@ -219,7 +236,7 @@ METIS is a full-stack AI-powered business management platform built with Next.js
 | 4: API Layer | ✅ Complete | 100% |
 | 5: Frontend Foundation | ⚠️ Partial | 90% |
 | 6: Frontend Pages | ✅ Complete | 100% |
-| 7: E2E Demo Workflow | ⚠️ Partial | 65% |
+| 7: E2E Demo Workflow | ⚠️ Partial | 70% |
 | 8: Auth & Security | ❌ Not Started | 0% |
 | 9: Testing | ❌ Not Started | 0% |
 | 10: Deployment | ⚠️ Partial | 50% |

@@ -2,7 +2,7 @@
 
 > Build a company, not a science project.
 
-**Last Updated:** 2026-08-12
+**Last Updated:** 2026-08-12 (METIS 0.3.0)
 
 ---
 
@@ -15,12 +15,12 @@
 **Goal:** FastAPI app running with Firestore, basic CRUD for business entities
 
 - [x] FastAPI application with CORS, middleware — `backend/src/main.py`
-- [x] Firestore integration (google-cloud-firestore) — `backend/src/services/firestore.py`
+- [x] Firestore integration (google-cloud-firestore) with local SQLite fallback — `backend/src/services/firestore.py` *(2026-08-12 (0.3.0): InMemoryDB replaced with a persistent local `SqliteDB` (`backend/data/metis.db`) — all data now survives restarts without Google Cloud)*
 - [x] Gemini/Vertex AI integration (google-genai) — `backend/src/services/gemini.py`
 - [x] Data models: Business, Product, Customer, Order, AgentLog, Approval, ChatMessage — `backend/src/models/schemas.py`
 - [x] Chat message persistence (`chat_messages` collection) — `backend/src/services/firestore.py` (`chat_service`)
 - [x] Pydantic schemas for validation — `backend/src/models/schemas.py`
-- [x] Environment configuration (.env) — `backend/src/core/config.py`
+- [x] Environment configuration (.env) — `backend/src/core/config.py` *(0.3.0: `APP_VERSION` bumped to 0.3.0 in both config and `.env`)*
 - [x] Health check endpoint — `backend/src/main.py` (`/health`)
 
 ## Milestone 2: Agent Framework ✅
@@ -38,9 +38,9 @@
 **Goal:** All 6 agents functional with real tools
 
 - [x] **Manager Agent** — orchestrates, delegates, summarizes — `backend/src/agents/manager.py`
-- [x] **Sales Agent** — product search, recommendations, order creation — `backend/src/agents/sales.py`
+- [x] **Sales Agent** — product search, recommendations, order creation — `backend/src/agents/sales.py` *(2026-08-12 (0.3.0): `create_order` now resolves customer/product references by full ID, ID prefix, or name — case-insensitive, with fuzzy fallback — so staged approvals no longer fail on truncated or hallucinated IDs)*
 - [x] **Support Agent** — FAQs, policy answers, escalation — `backend/src/agents/support.py`
-- [x] **Marketing Agent** — campaign creation, content generation — `backend/src/agents/marketing.py`
+- [x] **Marketing Agent** — campaign creation, content generation — `backend/src/agents/marketing.py` *(0.3.0: campaign product reference resolution likewise tolerant of prefix/name matches)*
 - [x] **Operations Agent** — order management, inventory monitoring — `backend/src/agents/operations.py`
 - [x] **Analytics Agent** — business metrics, insights, recommendations — `backend/src/agents/analytics.py`
 
@@ -58,7 +58,7 @@
 - [x] `/api/agents` — agent status, activity, trigger actions
 - [x] `/api/chat` — chat with Manager Agent (persists turns, returns synced history)
 - [x] `/api/chat/{business_id}/history` — retrieve stored chat history
-- [x] `/api/approvals` — list, approve, reject *(2026-08-12: failed executions now mark the approval `failed` (`ApprovalStatus.FAILED`) instead of `approved`, returning the execution error)*
+- [x] `/api/approvals` — list, approve, reject *(2026-08-12: failed executions now mark the approval `failed` (`ApprovalStatus.FAILED`) instead of `approved`, returning the execution error. **0.3.0:** the owner's approve/reject no longer 400s on truncated/hallucinated IDs — staged actions resolve references before executing; the chat prompt now shows full product/customer/order IDs so the model stops inventing them)*
 - [x] `/api/analytics` — dashboard metrics
 
 ## Milestone 5: Frontend Foundation ⚠️
@@ -66,8 +66,8 @@
 
 - [x] Next.js 14 with App Router — `frontend/package.json`, `frontend/next.config.js`
 - [x] Tailwind CSS configuration — `frontend/tailwind.config.js`
-- [x] Shared layout with navigation — `frontend/src/app/layout.tsx`, `frontend/src/components/Sidebar.tsx`
-- [x] API client — `frontend/src/lib/api.ts` *(configurable via `NEXT_PUBLIC_API_URL`, falls back to `http://localhost:8000/api`)*
+- [x] Shared layout with navigation — `frontend/src/app/layout.tsx`, `frontend/src/components/Sidebar.tsx` *(0.3.0: footer now shows `v0.3.0`)*
+- [x] API client — `frontend/src/lib/api.ts` *(configurable via `NEXT_PUBLIC_API_URL`, falls back to `http://localhost:8000/api`; 0.3.0 adds `/models`, `/ai/config`, `/ai/config/clear` for the Gemini key panel)*
 - [x] TypeScript types matching backend models — `frontend/src/types/index.ts`
 - [ ] Authentication context — **Not implemented**
 
@@ -76,8 +76,8 @@
 
 - [x] **Dashboard** — revenue, orders, customers, alerts, recommendations — `frontend/src/app/page.tsx`
 - [x] **Agent Center** — agent status, tasks, success rates — `frontend/src/app/agents/page.tsx`
-- [x] **Business Chat** — chat interface with Manager Agent; persisted multi-turn history, Markdown rendering, survives reload — `frontend/src/app/chat/page.tsx`
-- [x] **Approval Center** — pending actions with approve/reject — `frontend/src/app/approvals/page.tsx`
+- [x] **Business Chat** — chat interface with Manager Agent; persisted multi-turn history, Markdown rendering, survives reload; **Gemini API key can be set/cleared in-app** *(0.3.0)* — `frontend/src/app/chat/page.tsx`, `frontend/src/components/GeminiKeyPanel.tsx`
+- [x] **Approval Center** — pending actions with approve/reject; *error alerts now surface the real execution error from the backend (e.g. "Product X not found") instead of a generic message (0.3.0)* — `frontend/src/app/approvals/page.tsx`
 - [x] **Activity Feed** — chronological agent activity log — `frontend/src/app/activity/page.tsx`
 - [x] **Products** — product management UI — `frontend/src/app/products/page.tsx`
 - [x] **Orders** — order management UI — `frontend/src/app/orders/page.tsx`
@@ -93,13 +93,15 @@
 5. [x] Operations Agent records the order — `backend/src/agents/operations.py`
 6. [x] Inventory auto-updates — `backend/src/agents/sales.py` (create_order)
 7. [x] Analytics Agent detects demand — `backend/src/agents/analytics.py`
-8. [x] Manager Agent reports status — `POST /api/chat/{business_id}` + `GET /api/chat/{business_id}/history` + `frontend/src/app/chat/page.tsx` *(multi-turn context: last 20 turns persisted to Firestore)*
+8. [x] Manager Agent reports status — `POST /api/chat/{business_id}` + `GET /api/chat/{business_id}/history` + `frontend/src/app/chat/page.tsx` *(multi-turn context: last 20 turns persisted to Firestore/SQLite)*
 9. [x] Owner asks for a promotion — chat flow with persistent history
-10. [ ] Marketing Agent campaign flow exposed in UI — agent exists, no UI to trigger campaign
-11. [x] Owner approves — `frontend/src/app/approvals/page.tsx` + approve/reject endpoints
+10. [~] Marketing Agent campaign flow — *agent works and campaigns are created via chat → owner approval, but no dedicated campaign UI/dashboard* (0.3.0: approvals referencing campaigns execute reliably)
+11. [x] Owner approves — `frontend/src/app/approvals/page.tsx` + approve/reject endpoints *(0.3.0: approve no longer fails on truncated/hallucinated IDs; error alerts show the real reason)*
 12. [x] System records completed action — agent logs + approval status updates
 
 > **Previous blocker RESOLVED (2026-08-12):** `SetupWizard` now calls `POST /api/business` and stores the backend-returned ID; `BusinessContext` hydrates `businessId` from `localStorage` on reload. All pages (Products, Orders, Customers, Dashboard, Agents, Activity, Approvals, Chat) are wired to the backend API with loading/error states. **Update (2026-08-12):** Chat conversations are persisted server-side (`chat_messages` collection), the Manager Agent receives the last 20 turns as multi-turn Gemini context, and the chat UI loads history on mount and renders Markdown. Remaining: customer-facing simulated conversation UI and a full single-pass verification of the 12-step scenario.
+>
+> **0.3.0 (2026-08-12):** The chat prompt now shows full product/customer/order IDs (they were truncated to 8 chars, which led Gemini to stage approvals with invalid references); `create_order`/`create_campaign` resolve references by ID, prefix, or name (case-insensitive, fuzzy fallback for e.g. `prod_batmobile` → `Bat-Mobile`). Approval Center alerts surface the backend's actual execution error. Local persistence switched from in-memory to SQLite (`backend/data/metis.db`).
 
 ## Milestone 8: Auth & Security ❌
 **Goal:** Production-ready security
@@ -136,6 +138,8 @@
 - [ ] Custom domain (optional)
 
 > **2026-08-12 (bug-fix pass):** Full-sweep bug audit + fixes. Backend: broken Marketing f-string, `POST /orders` contract, failed-approval status, defensive chat prompt data, customer/line-item validation, `execute_staged_action` try/except, Firestore fallback warning, tool-loop exhaustion message, `get_order_status` shape, `get_revenue` period filtering. Frontend: chat history stale-closure fix, `notifyDataChanged()` on Products/Customers. Docs: README code fences + API table. Verified: Python compiles, `tsc --noEmit` clean, app imports OK.
+>
+> **0.3.0 (2026-08-12):** METIS 0.3.0 — SQLite local persistence (`backend/data/metis.db`, survives restarts), Gemini API key management in the Chat page (`GeminiKeyPanel`), and a fix for failing task approvals: approvals could not be executed when Gemini staged truncated or hallucinated product/customer IDs. Full IDs now appear in prompts; `create_order`/`create_campaign` resolve references by ID/prefix/name (case-insensitive + fuzzy). Approval Center errors now show the real backend reason. Backend restarted on the new code (`/health` returns 0.3.0).
 
 ---
 

@@ -7,6 +7,7 @@ from ..models.schemas import (
     CustomerCreate,
     OrderCreate,
     ChatRequest, ChatResponse, ChatMessage,
+    StorefrontChatRequest,
     ApprovalStatus,
     OrderStatus,
     AgentType,
@@ -21,6 +22,7 @@ from ..services.firestore import (
     agent_log_service,
     approval_service,
     chat_service,
+    storefront_chat_service,
     app_state_service,
 )
 
@@ -370,6 +372,167 @@ After the tools run, summarize concisely what you did or what is awaiting approv
 
     # Return full stored history so the client stays in sync
     final = _sorted_chat_history(business_id)[-50:]
+    return ChatResponse(
+        message=response,
+        agent_actions=agent_actions,
+        history=[
+            ChatMessage(
+                role=m['role'],
+                content=m['content'],
+                timestamp=m.get('timestamp') or m['created_at'],
+            )
+            for m in final
+        ],
+    )
+
+
+# === Storefront (public customer chat) ===
+
+MAX_STOREFRONT_HISTORY = 100
+STOREFRONT_CONTEXT_TURNS = 20
+
+
+def _sorted_storefront_history(business_id: str, session_id: str) -> list[dict]:
+    """All stored storefront chat messages for a business + session, oldest first."""
+    messages = storefront_chat_service.list_all([
+        ('business_id', '==', business_id),
+        ('session_id', '==', session_id),
+    ])
+    messages.sort(key=lambda m: m.get('created_at') or datetime.min)
+    return messages
+
+
+@router.get('/storefront/{business_id}/history')
+def get_storefront_history(business_id: str, session_id: str = '', limit: int = 100):
+    if not session_id:
+        raise HTTPException(status_code=400, detail='session_id is required.')
+    return _sorted_storefront_history(business_id, session_id)[-limit:]
+
+
+@router.post('/storefront/{business_id}/chat', response_model=ChatResponse)
+def storefront_chat(business_id: str, data: StorefrontChatRequest):
+    from ..services.actions import (
+        STOREFRONT_TOOL_DECLARATIONS,
+        handle_storefront_tool_call,
+    )
+    from ..services.gemini import gemini_service
+
+    if not business_id or not business_service.get(business_id):
+        raise HTTPException(status_code=404, detail='Store not found.')
+
+    customer = None
+    if data.customer_id:
+        customer = customer_service.get(data.customer_id)
+        if not customer or customer.get('business_id') != business_id:
+            raise HTTPException(status_code=400, detail='Unknown customer for this store.')
+
+    model = data.model.strip()
+    if model and not gemini_service.is_valid_model(model):
+        raise HTTPException(status_code=400, detail=f"Unknown model '{model}'.")
+
+    business = business_service.get(business_id)
+    session_id = data.session_id.strip() or 'public'
+
+    stored = _sorted_storefront_history(business_id, session_id)
+
+    # Seed server-side history from the client (e.g. pre-persistence conversations)
+    if not stored and data.history:
+        for msg in data.history:
+            record = msg.model_dump()
+            record['business_id'] = business_id
+            record['session_id'] = session_id
+            storefront_chat_service.create(record)
+        stored = _sorted_storefront_history(business_id, session_id)
+
+    # Persist the new user turn
+    storefront_chat_service.create({
+        'business_id': business_id,
+        'session_id': session_id,
+        'role': 'user',
+        'content': data.message,
+        'timestamp': datetime.utcnow(),
+    })
+
+    # Exclude the turn just persisted: it is included in the prompt below
+    history = _sorted_storefront_history(business_id, session_id)[-STOREFRONT_CONTEXT_TURNS:-1]
+
+    products = product_service.list_all([('business_id', '==', business_id)])
+    product_list = '\n'.join(
+        f'  - {p.get("name", "Unknown")}: ৳{float(p.get("price") or 0):,.2f} (ID: {str(p.get("id", ""))}, Stock: {p.get("stock", 0)})'
+        for p in products[:12]
+    )
+
+    prompt = f'''You are a shop assistant for {business.get('name', 'this store')} ({business.get('category', 'general store')}).
+
+Catalog:
+{product_list or '  - (the catalog is currently empty)'}
+
+A customer says: "{data.message}"
+
+Be a helpful, honest shop assistant:
+- Recommend only products from the catalog above — never invent products, prices, or stock.
+- Mention what is in stock; note items with low stock.
+- If the customer wants to buy one or more items, call create_order with the exact product ID and quantity.
+- Keep answers friendly and concise.'''
+
+    agent_actions: list[dict] = []
+
+    def _run_tool(name: str, args: dict) -> dict:
+        outcome = handle_storefront_tool_call(business_id, name, args)
+        agent_actions.append({
+            'action': name,
+            'status': outcome.get('status', 'failed'),
+            'approval_id': outcome.get('approval_id'),
+            'error': outcome.get('error'),
+            'result': outcome.get('result'),
+        })
+        return outcome
+
+    from ..agents.registry import get_agent
+    sales_agent = get_agent(AgentType.SALES, business_id)
+
+    result = gemini_service.run_with_tools(
+        prompt,
+        tools=STOREFRONT_TOOL_DECLARATIONS,
+        on_call=_run_tool,
+        system_instruction=sales_agent.system_prompt,
+        temperature=0.6,
+        history=[{'role': m['role'], 'content': m['content']} for m in history],
+        model=model or None,
+    )
+    response = result.get('text') or ''
+
+    agent_log_service.create({
+        'business_id': business_id,
+        'agent_type': AgentType.SALES.value,
+        'action': 'storefront_chat_response',
+        'details': {
+            'message': data.message,
+            'session_id': session_id,
+            'customer_id': customer['id'] if customer else '',
+            'agent_actions': [a['action'] for a in agent_actions],
+        },
+        'status': 'completed',
+        'result': response[:200],
+    })
+
+    # Persist the assistant turn
+    storefront_chat_service.create({
+        'business_id': business_id,
+        'session_id': session_id,
+        'role': 'assistant',
+        'content': response,
+        'timestamp': datetime.utcnow(),
+    })
+
+    # Trim history to the cap
+    stored = _sorted_storefront_history(business_id, session_id)
+    if len(stored) > MAX_STOREFRONT_HISTORY:
+        for old in stored[:-MAX_STOREFRONT_HISTORY]:
+            storefront_chat_service.delete(old['id'])
+
+    # Return full stored history so the client stays in sync
+    final = _sorted_storefront_history(business_id, session_id)[-50:]
     return ChatResponse(
         message=response,
         agent_actions=agent_actions,

@@ -222,6 +222,16 @@ class ChatRequest(BaseModel):
     history: list[ChatMessage] = Field(default_factory=list)
 
 
+class StorefrontChatRequest(ChatRequest):
+    """Public customer chat with the Sales Agent.
+
+    `session_id` scopes the stored conversation per browser; `customer_id`
+    binds the shopper so staged orders carry a real customer reference.
+    """
+    session_id: str = ""
+    customer_id: str = ""
+
+
 class ChatResponse(BaseModel):
     message: str
     agent_actions: list[dict[str, Any]] = Field(default_factory=list)

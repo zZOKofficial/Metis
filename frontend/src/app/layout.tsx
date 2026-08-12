@@ -1,6 +1,5 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import AppShell from '@/components/AppShell';
 
 export const metadata: Metadata = {
   title: 'METIS — Your Business. Operated by AI.',
@@ -19,9 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
         <meta name='theme-color' content='#201d17' />
       </head>
-      <body>
-        <AppShell>{children}</AppShell>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

@@ -52,9 +52,19 @@ export default function DashboardPage() {
         title={currentBusiness?.name || 'Daily register'}
         memo='business overview · work of the day'
         action={
-          <button onClick={loadData} className='btn btn-ghost'>
-            ↻ Recheck
-          </button>
+          <div className='flex items-center gap-2 flex-wrap'>
+            <a
+              href={`/storefront/${businessId}`}
+              target='_blank'
+              rel='noopener noreferrer'
+              className='btn btn-ghost'
+            >
+              Storefront ↗
+            </a>
+            <button onClick={loadData} className='btn btn-ghost'>
+              ↻ Recheck
+            </button>
+          </div>
         }
       />
 

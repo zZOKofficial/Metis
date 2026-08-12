@@ -159,6 +159,19 @@ TOOL_DECLARATIONS: list[dict[str, Any]] = [
 
 TOOL_NAMES = {t["name"] for t in TOOL_DECLARATIONS}
 
+# Tools a storefront customer may invoke. Read-only tools execute instantly;
+# create_order is staged and lands in the owner's Approval Center.
+STOREFRONT_TOOL_NAMES: set[str] = {
+    "search_products",
+    "recommend_products",
+    "check_inventory",
+    "create_order",
+}
+
+STOREFRONT_TOOL_DECLARATIONS = [
+    t for t in TOOL_DECLARATIONS if t["name"] in STOREFRONT_TOOL_NAMES
+]
+
 STAGED_TOOLS: set[str] = {"create_order", "create_campaign"}
 
 STAGED_RISK: dict[str, RiskLevel] = {
@@ -182,6 +195,16 @@ def handle_tool_call(business_id: str, name: str, args: dict[str, Any]) -> dict[
         return _update_order_status(business_id, args)
 
     return _read_only(business_id, name, args)
+
+
+def handle_storefront_tool_call(business_id: str, name: str, args: dict[str, Any]) -> dict[str, Any]:
+    """Dispatch a tool call for a storefront customer.
+
+    Guards against tools outside the customer-facing subset.
+    """
+    if name not in STOREFRONT_TOOL_NAMES:
+        return {"status": "failed", "error": f"Tool '{name}' is not available to customers."}
+    return handle_tool_call(business_id, name, args)
 
 
 def _read_only(business_id: str, name: str, args: dict[str, Any]) -> dict[str, Any]:
