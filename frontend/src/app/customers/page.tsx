@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useBusiness } from '@/lib/BusinessContext';
 import api from '@/lib/api';
+import { notifyDataChanged } from '@/lib/refresh';
 import { Customer } from '@/types';
 
 export default function CustomersPage() {
@@ -36,6 +37,7 @@ export default function CustomersPage() {
       setForm({ name: '', email: '', phone: '' });
       setShowForm(false);
       loadCustomers();
+      notifyDataChanged();
     } catch {
       alert('Failed to add customer.');
     }

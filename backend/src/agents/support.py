@@ -8,6 +8,9 @@ from ..services.firestore import product_service, business_service, customer_ser
 class SupportAgent(BaseAgent):
     """Support Agent — handles customer questions, FAQs, and complaints."""
 
+    def __init__(self, business_id: str):
+        super().__init__(AgentType.SUPPORT, business_id)
+
     @property
     def agent_name(self) -> str:
         return "Support Agent"

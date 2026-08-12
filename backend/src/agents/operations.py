@@ -8,6 +8,9 @@ from ..services.firestore import order_service, product_service
 class OperationsAgent(BaseAgent):
     '''Operations Agent - manages orders, inventory tracking, and operational issues.'''
 
+    def __init__(self, business_id: str):
+        super().__init__(AgentType.OPERATIONS, business_id)
+
     @property
     def agent_name(self) -> str:
         return 'Operations Agent'
@@ -33,9 +36,9 @@ Communication style: Organized, precise, proactive.'''
     def get_order_status(self, order_id: str) -> dict[str, Any]:
         order = order_service.get(order_id)
         if not order or order.get('business_id') != self.business_id:
-            return {'error': 'Order not found.'}
+            return {'success': False, 'error': 'Order not found.'}
         self.log_action(action='check_order_status', details={'order_id': order_id, 'status': order.get('status')})
-        return {'order_id': order_id, 'status': order.get('status'), 'total': order.get('total_amount'), 'items': order.get('items', []), 'created_at': str(order.get('created_at', ''))}
+        return {'success': True, 'order_id': order_id, 'status': order.get('status'), 'total': order.get('total_amount'), 'items': order.get('items', []), 'created_at': str(order.get('created_at', ''))}
 
     def update_order_status(self, order_id: str, new_status: OrderStatus) -> dict[str, Any]:
         order = order_service.get(order_id)

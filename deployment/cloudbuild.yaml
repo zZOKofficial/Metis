@@ -1,22 +1,22 @@
 ﻿steps:
   # Build backend
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io//metas-backend:', '-f', 'deployment/Dockerfile.backend', '.']
+    args: ['build', '-t', 'gcr.io/${PROJECT_ID}/metis-backend:${SHORT_SHA}', '-f', 'deployment/Dockerfile.backend', '.']
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io//metas-backend:']
+    args: ['push', 'gcr.io/${PROJECT_ID}/metis-backend:${SHORT_SHA}']
 
   # Build frontend
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io//metas-frontend:', '-f', 'deployment/Dockerfile.frontend', './frontend']
+    args: ['build', '-t', 'gcr.io/${PROJECT_ID}/metis-frontend:${SHORT_SHA}', '-f', 'deployment/Dockerfile.frontend', './frontend']
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io//metas-frontend:']
+    args: ['push', 'gcr.io/${PROJECT_ID}/metis-frontend:${SHORT_SHA}']
 
   # Deploy backend
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
-    args: ['run', 'deploy', 'metis-backend', '--image', 'gcr.io//metas-backend:', '--region', 'us-central1', '--platform', 'managed', '--allow-unauthenticated']
+    args: ['run', 'deploy', 'metis-backend', '--image', 'gcr.io/${PROJECT_ID}/metis-backend:${SHORT_SHA}', '--region', 'us-central1', '--platform', 'managed', '--allow-unauthenticated']
 
   # Deploy frontend
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
-    args: ['run', 'deploy', 'metis-frontend', '--image', 'gcr.io//metas-frontend:', '--region', 'us-central1', '--platform', 'managed', '--allow-unauthenticated']
+    args: ['run', 'deploy', 'metis-frontend', '--image', 'gcr.io/${PROJECT_ID}/metis-frontend:${SHORT_SHA}', '--region', 'us-central1', '--platform', 'managed', '--allow-unauthenticated']

@@ -100,3 +100,8 @@ export interface ChatMessage {
   content: string;
   timestamp?: string;
 }
+
+export interface ModelInfo {
+  id: string;
+  name: string;
+}

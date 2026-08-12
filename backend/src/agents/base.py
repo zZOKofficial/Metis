@@ -138,12 +138,13 @@ class BaseAgent(ABC):
         )
         return agent_log_service.create(log.model_dump())
 
-    def think(self, prompt: str, temperature: float = 0.7) -> str:
-        """Generate a response using Gemini."""
+    def think(self, prompt: str, temperature: float = 0.7, history: Optional[list[dict[str, Any]]] = None) -> str:
+        """Generate a response using Gemini, optionally with conversation history."""
         return self.gemini.generate(
             prompt,
             system_instruction=self.system_prompt,
             temperature=temperature,
+            history=history,
         )
 
     def think_structured(self, prompt: str) -> str:

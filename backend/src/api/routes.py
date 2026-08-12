@@ -1,11 +1,12 @@
 ﻿from fastapi import APIRouter, HTTPException
 from typing import Optional
+from datetime import datetime
 from ..models.schemas import (
     BusinessCreate,
     ProductCreate,
     CustomerCreate,
     OrderCreate,
-    ChatRequest, ChatResponse,
+    ChatRequest, ChatResponse, ChatMessage,
     ApprovalStatus,
     OrderStatus,
     AgentType,
@@ -18,6 +19,7 @@ from ..services.firestore import (
     order_service,
     agent_log_service,
     approval_service,
+    chat_service,
 )
 
 router = APIRouter()
@@ -185,21 +187,84 @@ def get_agent_activity(business_id: str, agent_type: str = '', limit: int = 50):
 
 # === Chat ===
 
+MAX_CHAT_HISTORY = 100
+CHAT_CONTEXT_TURNS = 20
+
+
+@router.get('/models')
+def list_models():
+    from ..services.gemini import gemini_service
+    return {
+        'models': gemini_service.AVAILABLE_MODELS,
+        'default': gemini_service.MODEL,
+    }
+
+
+def _sorted_chat_history(business_id: str) -> list[dict]:
+    """All stored chat messages for a business, oldest first."""
+    messages = chat_service.list_all([('business_id', '==', business_id)])
+    messages.sort(key=lambda m: m.get('created_at') or datetime.min)
+    return messages
+
+
+@router.get('/chat/{business_id}/history')
+def get_chat_history(business_id: str, limit: int = 100):
+    return _sorted_chat_history(business_id)[-limit:]
+
+
 @router.post('/chat/{business_id}', response_model=ChatResponse)
 def chat_with_manager(business_id: str, data: ChatRequest):
     from ..agents.registry import get_agent
+    from ..services.actions import TOOL_DECLARATIONS, handle_tool_call
+    from ..services.gemini import gemini_service
+
+    model = data.model.strip()
+    if model and not gemini_service.is_valid_model(model):
+        raise HTTPException(status_code=400, detail=f"Unknown model '{model}'.")
+
     manager = get_agent(AgentType.MANAGER, business_id)
     context = manager.get_business_context()
 
-    business = context.get('business', {})
-    products = context.get('products', [])
-    orders = context.get('orders', [])
-    customers = context.get('customers', [])
-    total_revenue = sum(o.get('total_amount', 0) for o in orders)
+    stored = _sorted_chat_history(business_id)
+
+    # Seed server-side history from the client (e.g. pre-persistence conversations)
+    if not stored and data.history:
+        for msg in data.history:
+            record = msg.model_dump()
+            record['business_id'] = business_id
+            chat_service.create(record)
+        stored = _sorted_chat_history(business_id)
+
+    # Persist the new user turn
+    chat_service.create({
+        'business_id': business_id,
+        'role': 'user',
+        'content': data.message,
+        'timestamp': datetime.utcnow(),
+    })
+
+    # Exclude the turn just persisted: it is included in the prompt below
+    history = _sorted_chat_history(business_id)[-CHAT_CONTEXT_TURNS:-1]
+
+    business = context.get('business') or {}
+    products = context.get('products') or []
+    orders = context.get('orders') or []
+    customers = context.get('customers') or []
+    total_revenue = sum(float(o.get('total_amount') or 0) for o in orders)
     low_stock = [p for p in products if p.get('stock', 0) <= 5]
 
-    recent_orders = '\n'.join(f'  - Order {o["id"][:8]}: ৳{o["total_amount"]:,.2f} ({o["status"]})' for o in orders[:5])
-    product_list = '\n'.join(f'  - {p["name"]}: ৳{p["price"]:,.2f} (Stock: {p.get("stock", 0)})' for p in products[:10])
+    recent_orders = '\n'.join(
+        f'  - Order {str(o.get("id", ""))[:8]}: ৳{float(o.get("total_amount") or 0):,.2f} ({o.get("status", "unknown")})'
+        for o in orders[:5]
+    )
+    product_list = '\n'.join(
+        f'  - {p.get("name", "Unknown")}: ৳{float(p.get("price") or 0):,.2f} (Stock: {p.get("stock", 0)})'
+        for p in products[:10]
+    )
+    customer_list = '\n'.join(
+        f'  - {c.get("name", "Unknown")} (ID: {str(c.get("id", ""))[:8]})'
+        for c in customers[:10]
+    )
 
     prompt = f'''You are the Manager Agent for {business.get('name', 'this business')}.
 
@@ -216,14 +281,79 @@ Recent orders:
 Products:
 {product_list}
 
+Customers:
+{customer_list}
+
 The owner says: "{data.message}"
 
-Respond helpfully using ONLY the data above. Be concise and specific. If they ask for something requiring action (like creating a campaign), explain what you can do and ask for confirmation.'''
+You have tools available. Prefer calling a tool over guessing:
+- For questions about performance, orders, inventory or products, call the matching read-only tool.
+- If the owner asks to create an order or a marketing campaign, call the matching tool - it will create an approval request for the owner to review.
+- If the owner asks to change an order's status, call update_order_status.
 
-    response = manager.think(prompt, temperature=0.6)
-    manager.log_action(action='chat_response', details={'message': data.message}, result=response[:200])
+After the tools run, summarize concisely what you did or what is awaiting approval.'''
 
-    return ChatResponse(message=response)
+    agent_actions: list[dict] = []
+
+    def _run_tool(name: str, args: dict) -> dict:
+        outcome = handle_tool_call(business_id, name, args)
+        agent_actions.append({
+            'action': name,
+            'status': outcome.get('status', 'failed'),
+            'approval_id': outcome.get('approval_id'),
+            'error': outcome.get('error'),
+            'result': outcome.get('result'),
+        })
+        return outcome
+
+    result = manager.gemini.run_with_tools(
+        prompt,
+        tools=TOOL_DECLARATIONS,
+        on_call=_run_tool,
+        system_instruction=manager.system_prompt,
+        temperature=0.6,
+        history=[{'role': m['role'], 'content': m['content']} for m in history],
+        model=model or None,
+    )
+    response = result.get('text') or ''
+
+    manager.log_action(
+        action='chat_response',
+        details={
+            'message': data.message,
+            'agent_actions': [a['action'] for a in agent_actions],
+        },
+        result=response[:200],
+    )
+
+    # Persist the assistant turn
+    chat_service.create({
+        'business_id': business_id,
+        'role': 'assistant',
+        'content': response,
+        'timestamp': datetime.utcnow(),
+    })
+
+    # Trim history to the cap
+    stored = _sorted_chat_history(business_id)
+    if len(stored) > MAX_CHAT_HISTORY:
+        for old in stored[:-MAX_CHAT_HISTORY]:
+            chat_service.delete(old['id'])
+
+    # Return full stored history so the client stays in sync
+    final = _sorted_chat_history(business_id)[-50:]
+    return ChatResponse(
+        message=response,
+        agent_actions=agent_actions,
+        history=[
+            ChatMessage(
+                role=m['role'],
+                content=m['content'],
+                timestamp=m.get('timestamp') or m['created_at'],
+            )
+            for m in final
+        ],
+    )
 
 
 # === Approvals ===
@@ -241,12 +371,30 @@ def approve_action(business_id: str, approval_id: str):
     approval = approval_service.get(approval_id)
     if not approval or approval.get('business_id') != business_id:
         raise HTTPException(status_code=404, detail='Approval not found.')
+    if approval.get('status') != ApprovalStatus.PENDING.value:
+        raise HTTPException(status_code=400, detail='Approval already resolved.')
+
     from datetime import datetime
+    from ..services.actions import execute_staged_action
+
+    result = execute_staged_action(business_id, approval)
+    success = result.get('success', False)
     approval_service.update(approval_id, {
-        'status': ApprovalStatus.APPROVED.value,
+        'status': ApprovalStatus.APPROVED.value if success else ApprovalStatus.FAILED.value,
         'resolved_at': datetime.utcnow(),
+        'execution': result,
     })
-    return {'message': 'Action approved.', 'approval_id': approval_id}
+    if not success:
+        raise HTTPException(status_code=400, detail={
+            'message': 'Action could not be executed.',
+            'approval_id': approval_id,
+            'execution': result,
+        })
+    return {
+        'message': 'Action approved and executed.',
+        'approval_id': approval_id,
+        'execution': result,
+    }
 
 
 @router.post('/approvals/{business_id}/{approval_id}/reject')
@@ -254,6 +402,8 @@ def reject_action(business_id: str, approval_id: str):
     approval = approval_service.get(approval_id)
     if not approval or approval.get('business_id') != business_id:
         raise HTTPException(status_code=404, detail='Approval not found.')
+    if approval.get('status') != ApprovalStatus.PENDING.value:
+        raise HTTPException(status_code=400, detail='Approval already resolved.')
     from datetime import datetime
     approval_service.update(approval_id, {
         'status': ApprovalStatus.REJECTED.value,

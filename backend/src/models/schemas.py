@@ -25,6 +25,7 @@ class ApprovalStatus(str, Enum):
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
+    FAILED = "failed"
 
 
 class RiskLevel(str, Enum):
@@ -126,10 +127,15 @@ class OrderItem(BaseModel):
     total_price: float
 
 
+class OrderItemCreate(BaseModel):
+    product_id: str
+    quantity: int = 1
+
+
 class OrderBase(BaseModel):
     customer_id: str
-    items: list[OrderItem]
-    total_amount: float
+    items: list[OrderItemCreate]
+    total_amount: float = 0.0
     notes: str = ""
 
 
@@ -212,6 +218,7 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     business_id: str
     message: str
+    model: str = ""
     history: list[ChatMessage] = Field(default_factory=list)
 
 
@@ -219,6 +226,7 @@ class ChatResponse(BaseModel):
     message: str
     agent_actions: list[dict[str, Any]] = Field(default_factory=list)
     timestamp: datetime = Field(default_factory=datetime.utcnow)
+    history: list[ChatMessage] = Field(default_factory=list)
 
 
 # === Analytics ===

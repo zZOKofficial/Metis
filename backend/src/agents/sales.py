@@ -21,6 +21,9 @@ from ..services.firestore import (
 class SalesAgent(BaseAgent):
     """Sales Agent — handles product inquiries, recommendations, and order creation."""
 
+    def __init__(self, business_id: str):
+        super().__init__(AgentType.SALES, business_id)
+
     @property
     def agent_name(self) -> str:
         return "Sales Agent"
@@ -135,10 +138,22 @@ Respond with ONLY a JSON array of product IDs, like: ["id1", "id2", "id3"]"""
         items: list[dict[str, Any]],
     ) -> dict[str, Any]:
         """Create a new order after verifying stock."""
+        customer = customer_service.get(customer_id)
+        if not customer:
+            return {
+                "success": False,
+                "error": f"Customer {customer_id} not found.",
+            }
+
         order_items = []
         total_amount = 0.0
 
         for item in items:
+            if not isinstance(item, dict) or not item.get("product_id"):
+                return {
+                    "success": False,
+                    "error": "Each order item must include a product_id.",
+                }
             product = self.get_product(item["product_id"])
             if not product:
                 return {
@@ -185,15 +200,13 @@ Respond with ONLY a JSON array of product IDs, like: ["id1", "id2", "id3"]"""
                 product_service.update(product["id"], {"stock": max(0, new_stock)})
 
         # Update customer stats
-        customer = customer_service.get(customer_id)
-        if customer:
-            customer_service.update(
-                customer_id,
-                {
-                    "total_orders": customer.get("total_orders", 0) + 1,
-                    "total_spent": customer.get("total_spent", 0) + total_amount,
-                },
-            )
+        customer_service.update(
+            customer_id,
+            {
+                "total_orders": customer.get("total_orders", 0) + 1,
+                "total_spent": customer.get("total_spent", 0) + total_amount,
+            },
+        )
 
         self.log_action(
             action="create_order",

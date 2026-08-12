@@ -11,10 +11,15 @@ def get_db():
     '''Get Firestore client instance (lazy initialization).'''
     global _db
     if _db is None:
-        try:
-            from google.cloud import firestore
-            _db = firestore.Client(project=settings.GOOGLE_CLOUD_PROJECT)
-        except Exception:
+        if settings.GOOGLE_CLOUD_PROJECT:
+            try:
+                from google.cloud import firestore
+                _db = firestore.Client(project=settings.GOOGLE_CLOUD_PROJECT)
+            except Exception as e:
+                print(f'WARNING: Firestore client failed to initialize ({e}); falling back to in-memory DB. Data will NOT persist.')
+                _db = InMemoryDB()
+        else:
+            print('WARNING: GOOGLE_CLOUD_PROJECT not set; using in-memory DB. Data will NOT persist.')
             _db = InMemoryDB()
     return _db
 
@@ -153,3 +158,4 @@ customer_service = FirestoreService('customers')
 order_service = FirestoreService('orders')
 agent_log_service = FirestoreService('agent_logs')
 approval_service = FirestoreService('approvals')
+chat_service = FirestoreService('chat_messages')

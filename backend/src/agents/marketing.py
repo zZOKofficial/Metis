@@ -8,6 +8,9 @@ from ..services.firestore import product_service, order_service
 class MarketingAgent(BaseAgent):
     """Marketing Agent — creates campaigns, generates promotional content."""
 
+    def __init__(self, business_id: str):
+        super().__init__(AgentType.MARKETING, business_id)
+
     @property
     def agent_name(self) -> str:
         return "Marketing Agent"
@@ -57,7 +60,7 @@ Communication style: Creative, enthusiastic, practical."""
 
         prompt = f"""Analyze these products for promotion opportunities:
 
-{chr(10).join(f"- {p['name']}: ৳p['price'], Stock: {p.get('stock', 0)}, Category: {p.get('category', 'N/A')}" for p in products)}
+{chr(10).join(f"- {p['name']}: ৳{p['price']:,.2f}, Stock: {p.get('stock', 0)}, Category: {p.get('category', 'N/A')}" for p in products)}
 
 Which products would benefit most from a promotional campaign? Consider:
 1. High stock levels

@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useBusiness } from '@/lib/BusinessContext';
 import api from '@/lib/api';
+import { useDataRefresh } from '@/lib/refresh';
 import { DashboardMetrics, AgentStatus } from '@/types';
 import SetupWizard from '@/components/SetupWizard';
 
@@ -12,15 +13,11 @@ export default function DashboardPage() {
   const [agents, setAgents] = useState<AgentStatus[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const loadData = useCallback(async () => {
     if (!businessId) {
       setLoading(false);
       return;
     }
-    loadData();
-  }, [businessId]);
-
-  const loadData = async () => {
     setLoading(true);
     try {
       const [metricsRes, agentsRes] = await Promise.all([
@@ -34,7 +31,13 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [businessId]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useDataRefresh(loadData);
 
   if (!businessId) {
     return <SetupWizard />;
@@ -87,11 +90,11 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {metrics?.low_stock_products?.length > 0 && (
+      {(metrics?.low_stock_products?.length ?? 0) > 0 && (
         <div className='card border-l-4 border-l-yellow-400'>
           <h3 className='font-semibold text-slate-800 mb-3'>⚠️ Low Stock Alerts</h3>
           <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3'>
-            {metrics.low_stock_products.map((p) => (
+            {metrics?.low_stock_products?.map((p) => (
               <div key={p.id} className='flex items-center justify-between p-3 bg-yellow-50 rounded-lg'>
                 <span className='text-sm font-medium text-slate-700'>{p.name}</span>
                 <span className='badge badge-yellow'>{p.stock} left</span>

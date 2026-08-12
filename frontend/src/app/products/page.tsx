@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useBusiness } from '@/lib/BusinessContext';
 import api from '@/lib/api';
+import { notifyDataChanged } from '@/lib/refresh';
 import { Product } from '@/types';
 
 export default function ProductsPage() {
@@ -44,6 +45,7 @@ export default function ProductsPage() {
       setForm({ name: '', description: '', price: '', stock: '', category: '' });
       setShowForm(false);
       loadProducts();
+      notifyDataChanged();
     } catch {
       alert('Failed to add product.');
     }

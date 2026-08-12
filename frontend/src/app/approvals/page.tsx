@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useBusiness } from '@/lib/BusinessContext';
 import api from '@/lib/api';
+import { notifyDataChanged, useDataRefresh } from '@/lib/refresh';
 import { Approval } from '@/types';
 
 export default function ApprovalsPage() {
@@ -10,12 +11,8 @@ export default function ApprovalsPage() {
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const loadApprovals = useCallback(async () => {
     if (!businessId) return;
-    loadApprovals();
-  }, [businessId]);
-
-  const loadApprovals = async () => {
     setLoading(true);
     try {
       const res = await api.get(`/approvals/${businessId}`);
@@ -25,12 +22,18 @@ export default function ApprovalsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [businessId]);
+
+  useEffect(() => {
+    loadApprovals();
+  }, [loadApprovals]);
+
+  useDataRefresh(loadApprovals);
 
   const handleApprove = async (id: string) => {
     try {
       await api.post(`/approvals/${businessId}/${id}/approve`);
-      loadApprovals();
+      notifyDataChanged();
     } catch {
       alert('Failed to approve.');
     }
@@ -39,7 +42,7 @@ export default function ApprovalsPage() {
   const handleReject = async (id: string) => {
     try {
       await api.post(`/approvals/${businessId}/${id}/reject`);
-      loadApprovals();
+      notifyDataChanged();
     } catch {
       alert('Failed to reject.');
     }

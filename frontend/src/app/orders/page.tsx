@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useBusiness } from '@/lib/BusinessContext';
 import api from '@/lib/api';
+import { useDataRefresh } from '@/lib/refresh';
 import { Order } from '@/types';
 
 export default function OrdersPage() {
@@ -10,12 +11,8 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const loadOrders = useCallback(async () => {
     if (!businessId) return;
-    loadOrders();
-  }, [businessId]);
-
-  const loadOrders = async () => {
     setLoading(true);
     try {
       const res = await api.get(`/orders/${businessId}`);
@@ -25,7 +22,13 @@ export default function OrdersPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [businessId]);
+
+  useEffect(() => {
+    loadOrders();
+  }, [loadOrders]);
+
+  useDataRefresh(loadOrders);
 
   if (!businessId) return <p className='text-slate-500'>Please set up your business first.</p>;
 

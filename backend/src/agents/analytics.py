@@ -8,6 +8,9 @@ from ..services.firestore import order_service, product_service, customer_servic
 class AnalyticsAgent(BaseAgent):
     '''Analytics Agent - converts business data into decisions and insights.'''
 
+    def __init__(self, business_id: str):
+        super().__init__(AgentType.ANALYTICS, business_id)
+
     @property
     def agent_name(self) -> str:
         return 'Analytics Agent'
@@ -34,7 +37,22 @@ Communication style: Data-driven, precise, insightful.'''
 
     def get_revenue(self, period: str = 'all') -> dict[str, Any]:
         orders = order_service.list_all([('business_id', '==', self.business_id)])
-        total = sum(o.get('total_amount', 0) for o in orders)
+        if period != 'all':
+            from datetime import datetime, timedelta
+            if period == 'today':
+                cutoff = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+            elif period == '7d':
+                cutoff = datetime.utcnow() - timedelta(days=7)
+            elif period == '30d':
+                cutoff = datetime.utcnow() - timedelta(days=30)
+            else:
+                cutoff = None
+            if cutoff is not None:
+                orders = [
+                    o for o in orders
+                    if isinstance(o.get('created_at'), datetime) and o['created_at'] >= cutoff
+                ]
+        total = sum(float(o.get('total_amount') or 0) for o in orders)
         return {'total_revenue': total, 'order_count': len(orders), 'average_order_value': total / len(orders) if orders else 0}
 
     def get_top_products(self, limit: int = 5) -> list[dict[str, Any]]:

@@ -74,7 +74,7 @@ Communication style: Professional, direct, helpful."""
             "customer_count": len(customers),
         }
 
-    def delegate_task(
+    async def delegate_task(
         self, target: AgentType, task: str, context: dict[str, Any]
     ) -> AgentResponse:
         """Delegate a task to a specialized agent."""
@@ -97,10 +97,7 @@ Communication style: Professional, direct, helpful."""
         from .registry import get_agent
 
         agent = get_agent(target, self.business_id)
-        import asyncio
-        response = asyncio.get_event_loop().run_until_complete(
-            agent.handle_message(message)
-        )
+        response = await agent.handle_message(message)
 
         self.log_action(
             action="delegate_task",
@@ -152,12 +149,12 @@ Communication style: Professional, direct, helpful."""
     def produce_summary(self) -> str:
         """Produce a business summary for the owner."""
         context = self.get_business_context()
-        business = context.get("business", {})
-        products = context.get("products", [])
-        orders = context.get("orders", [])
-        customers = context.get("customers", [])
+        business = context.get("business") or {}
+        products = context.get("products") or []
+        orders = context.get("orders") or []
+        customers = context.get("customers") or []
 
-        total_revenue = sum(o.get("total_amount", 0) for o in orders)
+        total_revenue = sum(float(o.get("total_amount") or 0) for o in orders)
         low_stock = [p for p in products if p.get("stock", 0) <= 5]
 
         prompt = f"""Based on the following business data, produce a concise summary for the business owner.
