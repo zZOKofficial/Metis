@@ -5,6 +5,7 @@ import { useBusiness } from '@/lib/BusinessContext';
 import api from '@/lib/api';
 import { notifyDataChanged } from '@/lib/refresh';
 import { Product } from '@/types';
+import { Docket, LoadingState, EmptyState, Cash } from '@/components/ui';
 
 export default function ProductsPage() {
   const { businessId } = useBusiness();
@@ -51,70 +52,104 @@ export default function ProductsPage() {
     }
   };
 
-  if (!businessId) return <p className='text-slate-500'>Please set up your business first.</p>;
+  if (!businessId) {
+    return (
+      <p className='font-mono text-xs uppercase tracking-[0.14em] text-ink-faint mt-10 text-center'>
+        Please set up your business first.
+      </p>
+    );
+  }
 
   return (
-    <div className='space-y-6'>
-      <div className='flex items-center justify-between'>
-        <h1 className='text-2xl font-bold text-slate-800'>Products</h1>
-        <button onClick={() => setShowForm(!showForm)} className='btn-primary'>+ Add Product</button>
-      </div>
+    <div className='space-y-8'>
+      <Docket
+        title='Products'
+        memo='shelf register · what the sales agent can promise'
+        action={
+          <button onClick={() => setShowForm(!showForm)} className='btn btn-primary'>
+            {showForm ? '✕ Close form' : '+ New entry'}
+          </button>
+        }
+      />
 
       {showForm && (
-        <div className='card'>
-          <h3 className='font-semibold mb-4'>New Product</h3>
-          <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+        <div className='ledger p-6 sm:p-8'>
+          <p className='kicker mb-5'>Stock entry form · line item</p>
+          <div className='grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6'>
             <div>
-              <label className='block text-sm font-medium text-slate-700 mb-1'>Name</label>
-              <input className='input' value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder='Product name' />
+              <label className='label mb-1' htmlFor='p-name'>
+                Name *
+              </label>
+              <input id='p-name' className='field' value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder='Product name' />
             </div>
             <div>
-              <label className='block text-sm font-medium text-slate-700 mb-1'>Category</label>
-              <input className='input' value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder='e.g., Shirts' />
+              <label className='label mb-1' htmlFor='p-category'>
+                Category
+              </label>
+              <input id='p-category' className='field' value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder='e.g., Shirts' />
             </div>
             <div>
-              <label className='block text-sm font-medium text-slate-700 mb-1'>Price (৳)</label>
-              <input className='input' type='number' value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} placeholder='0.00' />
+              <label className='label mb-1' htmlFor='p-price'>
+                Price (৳) *
+              </label>
+              <input id='p-price' className='field tabular' type='number' value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} placeholder='0.00' />
             </div>
             <div>
-              <label className='block text-sm font-medium text-slate-700 mb-1'>Stock</label>
-              <input className='input' type='number' value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} placeholder='0' />
+              <label className='label mb-1' htmlFor='p-stock'>
+                Stock on hand
+              </label>
+              <input id='p-stock' className='field tabular' type='number' value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} placeholder='0' />
             </div>
-            <div className='md:col-span-2'>
-              <label className='block text-sm font-medium text-slate-700 mb-1'>Description</label>
-              <textarea className='input' rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder='Product description' />
+            <div className='sm:col-span-2'>
+              <label className='label mb-1' htmlFor='p-desc'>
+                Description
+              </label>
+              <textarea id='p-desc' className='field' rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder='What is it, and what makes it worth the price?' />
             </div>
           </div>
-          <div className='flex gap-3 mt-4'>
-            <button onClick={() => setShowForm(false)} className='btn-secondary'>Cancel</button>
-            <button onClick={handleAdd} className='btn-primary'>Save Product</button>
+          <div className='flex gap-3 mt-7'>
+            <button onClick={() => setShowForm(false)} className='btn btn-ghost'>
+              Cancel
+            </button>
+            <button onClick={handleAdd} className='btn btn-primary'>
+              File entry
+            </button>
           </div>
         </div>
       )}
 
       {loading ? (
-        <div className='card text-center py-12'><p className='text-slate-400'>Loading products...</p></div>
+        <LoadingState label='counting the shelves…' />
       ) : products.length === 0 ? (
-        <div className='card text-center py-12'><p className='text-slate-400'>No products yet. Add your first product above.</p></div>
+        <EmptyState title='The shelves are empty' note='file your first stock entry to give the sales agent something to sell' />
       ) : (
-        <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
+        <div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-7'>
           {products.map((product) => (
-            <div key={product.id} className='card'>
-              <div className='flex items-start justify-between mb-2'>
-                <h3 className='font-semibold text-slate-800'>{product.name}</h3>
-                <span className={`badge ${product.stock > 5 ? 'badge-green' : product.stock > 0 ? 'badge-yellow' : 'badge-red'}`}>
-                  {product.stock} in stock
-                </span>
-              </div>
-              <p className='text-sm text-slate-500 mb-3 line-clamp-2'>{product.description || 'No description'}</p>
-              <div className='flex items-center justify-between pt-3 border-t border-slate-100'>
-                <span className='text-lg font-bold text-metis-600'>৳{product.price.toLocaleString()}</span>
-                <span className='text-xs text-slate-400'>{product.category}</span>
-              </div>
-            </div>
+            <article key={product.id} className='ledger p-5 flex flex-col'>
+              <header className='flex items-start justify-between gap-3'>
+                <h2 className='font-display text-lg font-bold leading-tight'>{product.name}</h2>
+                <StockTicket stock={product.stock} />
+              </header>
+              <p className='font-mono text-[10px] uppercase tracking-[0.14em] text-ink-faint mt-1.5'>
+                {product.category || 'uncategorised'}
+              </p>
+              <p className='text-sm text-ink-soft leading-relaxed mt-3 mb-4 flex-1'>
+                {product.description || 'No description on file.'}
+              </p>
+              <footer className='flex items-baseline justify-between border-t border-[var(--rule)] pt-3 mt-auto'>
+                <Cash value={product.price} className='font-mono text-xl font-semibold' />
+                <span className='font-mono text-[10px] uppercase tracking-[0.14em] text-ink-faint'>per unit</span>
+              </footer>
+            </article>
           ))}
         </div>
       )}
     </div>
   );
+}
+
+function StockTicket({ stock }: { stock: number }) {
+  const tone = stock > 5 ? 'ticket--ok' : stock > 0 ? 'ticket--warn' : 'ticket--danger';
+  const label = stock > 5 ? `${stock} in stock` : stock > 0 ? `low · ${stock} left` : 'out of stock';
+  return <span className={`ticket ${tone}`}>{label}</span>;
 }

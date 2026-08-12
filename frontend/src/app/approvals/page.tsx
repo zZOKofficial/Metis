@@ -5,18 +5,31 @@ import { useBusiness } from '@/lib/BusinessContext';
 import api from '@/lib/api';
 import { notifyDataChanged, useDataRefresh } from '@/lib/refresh';
 import { Approval } from '@/types';
+import { Docket, LoadingState, EmptyState, AgentDot, AGENT_LABEL, RiskTicket, Stamp, DateTime } from '@/components/ui';
+
+type Stamped = { id: string; verdict: 'approved' | 'rejected' } | null;
 
 export default function ApprovalsPage() {
   const { businessId } = useBusiness();
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [loading, setLoading] = useState(true);
+  const [stamped, setStamped] = useState<Stamped>(null);
+  const [busy, setBusy] = useState<string | null>(null);
 
   const loadApprovals = useCallback(async () => {
     if (!businessId) return;
     setLoading(true);
     try {
-      const res = await api.get(`/approvals/${businessId}`);
-      setApprovals(res.data);
+      const [pendingRes, approvedRes, rejectedRes] = await Promise.all([
+        api.get(`/approvals/${businessId}?status=pending`),
+        api.get(`/approvals/${businessId}?status=approved`),
+        api.get(`/approvals/${businessId}?status=rejected`),
+      ]);
+      const seen = new Set<string>();
+      const all = [...pendingRes.data, ...approvedRes.data, ...rejectedRes.data].filter((a: Approval) =>
+        seen.has(a.id) ? false : (seen.add(a.id), true)
+      );
+      setApprovals(all);
     } catch {
       console.error('Failed to load approvals.');
     } finally {
@@ -30,82 +43,141 @@ export default function ApprovalsPage() {
 
   useDataRefresh(loadApprovals);
 
-  const handleApprove = async (id: string) => {
+  const decide = async (id: string, verdict: 'approved' | 'rejected') => {
+    setBusy(id);
     try {
-      await api.post(`/approvals/${businessId}/${id}/approve`);
-      notifyDataChanged();
+      await api.post(`/approvals/${businessId}/${id}/${verdict === 'approved' ? 'approve' : 'reject'}`);
+      setStamped({ id, verdict });
+      window.setTimeout(() => {
+        setStamped(null);
+        loadApprovals();
+        notifyDataChanged();
+      }, 950);
     } catch {
-      alert('Failed to approve.');
+      alert(`Couldn't ${verdict === 'approved' ? 'approve' : 'reject'} this action. Make sure the backend is running.`);
+    } finally {
+      setBusy(null);
     }
   };
 
-  const handleReject = async (id: string) => {
-    try {
-      await api.post(`/approvals/${businessId}/${id}/reject`);
-      notifyDataChanged();
-    } catch {
-      alert('Failed to reject.');
-    }
-  };
+  if (!businessId) {
+    return (
+      <p className='font-mono text-xs uppercase tracking-[0.14em] text-ink-faint mt-10 text-center'>
+        Please set up your business first.
+      </p>
+    );
+  }
 
-  if (!businessId) return <p className='text-slate-500'>Please set up your business first.</p>;
-
-  const riskColors: Record<string, string> = { low: 'badge-green', medium: 'badge-yellow', high: 'badge-red' };
-  const pending = approvals.filter(a => a.status === 'pending');
-  const history = approvals.filter(a => a.status !== 'pending');
+  const pending = approvals.filter((a) => a.status === 'pending');
+  const history = approvals.filter((a) => a.status !== 'pending');
 
   return (
-    <div className='space-y-6'>
-      <div className='flex items-center justify-between'>
-        <h1 className='text-2xl font-bold text-slate-800'>Approval Center</h1>
-        <button onClick={loadApprovals} className='btn-secondary'>Refresh</button>
-      </div>
+    <div className='space-y-8'>
+      <Docket
+        title='Approval Center'
+        memo='your signature authorizes the action · nothing runs without it'
+        action={
+          <button onClick={loadApprovals} className='btn btn-ghost'>
+            ↻ Recheck
+          </button>
+        }
+      />
 
       {loading ? (
-        <div className='card text-center py-12'><p className='text-slate-400'>Loading...</p></div>
+        <LoadingState label='pulling dockets awaiting your signature…' />
       ) : pending.length === 0 ? (
-        <div className='card text-center py-12'>
-          <p className='text-slate-400 text-lg'>No pending approvals</p>
-          <p className='text-slate-400 text-sm mt-2'>Agent actions requiring approval will appear here.</p>
-        </div>
+        <EmptyState title='No dockets on the desk' note='actions awaiting your word will be filed here' />
       ) : (
-        <div className='space-y-4'>
-          {pending.map((approval) => (
-            <div key={approval.id} className='card'>
-              <div className='flex items-start justify-between mb-3'>
-                <div>
-                  <div className='flex items-center gap-2 mb-1'>
-                    <h3 className='font-semibold text-slate-800'>{approval.action}</h3>
-                    <span className={`badge ${riskColors[approval.risk_level] || 'badge-yellow'}`}>{approval.risk_level}</span>
+        <div className='space-y-7'>
+          <p className='font-mono text-[11px] uppercase tracking-[0.16em] text-ink-soft'>
+            {pending.length} docket{pending.length === 1 ? '' : 's'} awaiting your signature
+          </p>
+          {pending.map((approval) => {
+            const isStamped = stamped?.id === approval.id;
+            return (
+              <article key={approval.id} className={`ledger relative p-6 sm:p-7 ${isStamped ? 'fade-up' : ''}`}>
+                <div className='flex flex-wrap items-start justify-between gap-4'>
+                  <div className='min-w-0'>
+                    <div className='flex flex-wrap items-center gap-3 mb-2'>
+                      <h2 className='font-display text-2xl font-bold tracking-tight'>{approval.action}</h2>
+                      <RiskTicket level={approval.risk_level} />
+                    </div>
+                    <div className='flex flex-wrap items-center gap-3 font-mono text-[11px] uppercase tracking-[0.14em] text-ink-soft'>
+                      <span className='flex items-center gap-2'>
+                        <AgentDot type={approval.agent_type} className='w-2 h-2' />
+                        requested by the {AGENT_LABEL[approval.agent_type] || approval.agent_type} agent
+                      </span>
+                      <span>·</span>
+                      <DateTime value={approval.created_at} date />
+                    </div>
                   </div>
-                  <p className='text-sm text-slate-500'>Requested by: {approval.agent_type}</p>
+                  <span className='font-mono text-[10px] uppercase tracking-[0.16em] text-ink-faint'>
+                    docket #{approval.id.slice(0, 8).toUpperCase()}
+                  </span>
                 </div>
-              </div>
-              <p className='text-sm text-slate-600 mb-4 bg-slate-50 rounded-lg p-3'>{approval.reason}</p>
-              <div className='flex gap-3'>
-                <button onClick={() => handleApprove(approval.id)} className='btn-primary flex-1'>Approve</button>
-                <button onClick={() => handleReject(approval.id)} className='btn-danger flex-1'>Reject</button>
-              </div>
-            </div>
-          ))}
+
+                <p className='mt-5 text-[15px] leading-relaxed border border-[var(--rule)] bg-paper/60 px-4 py-3'>
+                  {approval.reason}
+                </p>
+
+                <div className='mt-6 flex flex-wrap gap-3'>
+                  <button
+                    onClick={() => decide(approval.id, 'approved')}
+                    disabled={busy !== null}
+                    className='btn btn-primary flex-1 sm:flex-none'
+                  >
+                    ✓ Approve & execute
+                  </button>
+                  <button
+                    onClick={() => decide(approval.id, 'rejected')}
+                    disabled={busy !== null}
+                    className='btn btn-danger-ghost flex-1 sm:flex-none'
+                  >
+                    ✗ Reject
+                  </button>
+                </div>
+
+                {isStamped && (
+                  <div className='absolute inset-0 flex items-center justify-center pointer-events-none'>
+                    <Stamp
+                      text={stamped?.verdict === 'approved' ? 'Approved' : 'Rejected'}
+                      slam
+                      tone={stamped?.verdict === 'approved' ? 'ok' : 'danger'}
+                      className='stamp--lone text-3xl sm:text-4xl'
+                    />
+                  </div>
+                )}
+              </article>
+            );
+          })}
         </div>
       )}
 
       {history.length > 0 && (
-        <div>
-          <h2 className='text-lg font-semibold text-slate-700 mb-3'>History</h2>
-          <div className='space-y-2'>
+        <section className='ledger p-5' aria-label='Approval history'>
+          <h2 className='kicker mb-1'>The record · recently decided</h2>
+          <ul className='divide-y divide-[var(--rule)]'>
             {history.slice(0, 10).map((approval) => (
-              <div key={approval.id} className='flex items-center justify-between p-3 bg-slate-50 rounded-lg'>
-                <div className='flex items-center gap-3'>
-                  <span className={`badge ${approval.status === 'approved' ? 'badge-green' : 'badge-red'}`}>{approval.status}</span>
-                  <span className='text-sm text-slate-700'>{approval.action}</span>
+              <li key={approval.id} className='flex flex-wrap items-center justify-between gap-3 py-3'>
+                <div className='flex items-center gap-3 min-w-0'>
+                  <Stamp
+                    small
+                    text={approval.status === 'approved' ? 'Approved' : 'Rejected'}
+                    tone={approval.status === 'approved' ? 'ok' : 'danger'}
+                    className='stamp--lone shrink-0'
+                  />
+                  <div className='min-w-0'>
+                    <p className='text-sm font-semibold truncate'>{approval.action}</p>
+                    <p className='font-mono text-[10px] uppercase tracking-[0.12em] text-ink-faint'>
+                      {AGENT_LABEL[approval.agent_type] || approval.agent_type} · {approval.risk_level} risk
+                    </p>
+                  </div>
                 </div>
-                <span className='text-xs text-slate-400'>{approval.agent_type}</span>
-              </div>
+                <DateTime value={approval.created_at} date />
+              </li>
             ))}
-          </div>
-        </div>
+          </ul>
+        </section>
       )}
     </div>
   );

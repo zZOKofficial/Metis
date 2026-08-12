@@ -6,6 +6,7 @@ import api from '@/lib/api';
 import { notifyDataChanged } from '@/lib/refresh';
 import { ChatMessage, ModelInfo } from '@/types';
 import Markdown from '@/components/Markdown';
+import { AgentDot } from '@/components/ui';
 
 const GREETING: ChatMessage = {
   role: 'assistant',
@@ -140,23 +141,26 @@ export default function ChatPage() {
     }
   };
 
-  if (!businessId) return <p className='text-slate-500'>Please set up your business first.</p>;
+  if (!businessId) {
+    return (
+      <p className='font-mono text-xs uppercase tracking-[0.14em] text-ink-faint mt-10 text-center'>
+        Please set up your business first.
+      </p>
+    );
+  }
 
   return (
-    <div className='h-full flex flex-col'>
-      <div className='flex items-center justify-between mb-4 gap-3 flex-wrap'>
-        <h1 className='text-2xl font-bold text-slate-800'>Business Chat</h1>
+    <div className='h-full flex flex-col' style={{ minHeight: 'calc(100vh - 100px)' }}>
+      <div className='flex items-end justify-between gap-3 flex-wrap mb-5'>
+        <div>
+          <p className='kicker mb-1.5'>Inter-office correspondence · confidential</p>
+          <h1 className='font-display text-3xl sm:text-4xl font-bold tracking-tight'>Business Chat</h1>
+        </div>
         <div className='flex items-center gap-3'>
-          <label htmlFor='chat-model' className='text-xs font-medium text-slate-500'>
+          <label htmlFor='chat-model' className='kicker'>
             Model
           </label>
-          <select
-            id='chat-model'
-            value={model}
-            onChange={handleModelChange}
-            disabled={loading}
-            className='input py-1.5 text-sm'
-          >
+          <select id='chat-model' value={model} onChange={handleModelChange} disabled={loading} className='field !w-auto cursor-pointer text-sm'>
             {models.length === 0 && <option value={model}>{model}</option>}
             {models.map((m) => (
               <option key={m.id} value={m.id}>
@@ -164,30 +168,45 @@ export default function ChatPage() {
               </option>
             ))}
           </select>
-          <span className='badge badge-blue'>Manager Agent</span>
         </div>
       </div>
 
-      <div className='flex-1 card flex flex-col overflow-hidden'>
-        <div className='flex-1 overflow-y-auto p-4 space-y-4'>
+      <div className='ledger flex flex-col min-h-0 flex-1'>
+        <div className='flex items-center justify-between border-b border-[var(--rule)] px-5 py-3'>
+          <span className='flex items-center gap-2.5'>
+            <AgentDot type='manager' />
+            <span className='font-display text-sm font-semibold'>Manager Agent</span>
+          </span>
+          <span className='font-mono text-[10px] uppercase tracking-[0.18em] text-ok'>● on duty</span>
+        </div>
+
+        <div className='flex-1 overflow-y-auto p-5 sm:p-7 space-y-6' aria-live='polite'>
           {messages.map((msg, i) => (
             <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[70%] rounded-2xl px-4 py-3 ${msg.role === 'user' ? 'bg-metis-500 text-white' : 'bg-slate-100 text-slate-800'}`}>
-                {msg.role === 'user' ? (
-                  <p className='text-sm whitespace-pre-wrap'>{msg.content}</p>
-                ) : (
+              {msg.role === 'user' ? (
+                <div className='max-w-[85%] sm:max-w-[70%] bg-ink text-card px-4 py-3 shadow-print-sm'>
+                  <p className='font-mono text-[10px] uppercase tracking-[0.16em] text-card/50 mb-1.5'>
+                    You · the owner
+                  </p>
+                  <p className='text-[15px] leading-relaxed whitespace-pre-wrap'>{msg.content}</p>
+                </div>
+              ) : (
+                <div className='max-w-[85%] sm:max-w-[75%] bg-card border border-ink border-l-[3px] border-l-carbon px-4 py-3 shadow-print-sm'>
+                  <p className='font-mono text-[10px] uppercase tracking-[0.16em] text-carbon mb-1.5'>
+                    From the manager
+                  </p>
                   <Markdown content={msg.content} />
-                )}
-              </div>
+                </div>
+              )}
             </div>
           ))}
           {loading && (
             <div className='flex justify-start'>
-              <div className='bg-slate-100 rounded-2xl px-4 py-3'>
-                <div className='flex gap-1'>
-                  <span className='w-2 h-2 bg-slate-400 rounded-full animate-bounce' style={{ animationDelay: '0ms' }}></span>
-                  <span className='w-2 h-2 bg-slate-400 rounded-full animate-bounce' style={{ animationDelay: '150ms' }}></span>
-                  <span className='w-2 h-2 bg-slate-400 rounded-full animate-bounce' style={{ animationDelay: '300ms' }}></span>
+              <div className='bg-card border border-ink border-l-[3px] border-l-carbon px-4 py-3 shadow-print-sm'>
+                <div className='flex gap-1.5 py-0.5'>
+                  <span className='w-1.5 h-1.5 bg-ink/50 blink'></span>
+                  <span className='w-1.5 h-1.5 bg-ink/50 blink' style={{ animationDelay: '0.2s' }}></span>
+                  <span className='w-1.5 h-1.5 bg-ink/50 blink' style={{ animationDelay: '0.4s' }}></span>
                 </div>
               </div>
             </div>
@@ -195,20 +214,31 @@ export default function ChatPage() {
           <div ref={messagesEndRef} />
         </div>
 
-        <div className='border-t border-slate-200 p-4'>
-          <div className='flex gap-3'>
-            <input
-              className='input flex-1'
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-              placeholder='Ask your Manager Agent...'
-              disabled={loading}
-            />
-            <button onClick={sendMessage} disabled={loading || !input.trim()} className='btn-primary'>
-              Send
+        <div className='border-t border-[var(--rule)] p-4 sm:p-5'>
+          <form
+            className='flex items-end gap-3'
+            onSubmit={(e) => {
+              e.preventDefault();
+              sendMessage();
+            }}
+          >
+            <div className='flex-1 min-w-0'>
+              <label htmlFor='chat-input' className='kicker block mb-1'>
+                Your instruction to the manager
+              </label>
+              <input
+                id='chat-input'
+                className='field !border-b-2'
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder='How is my business doing today?'
+                disabled={loading}
+              />
+            </div>
+            <button type='submit' disabled={loading || !input.trim()} className='btn btn-primary shrink-0'>
+              Send →
             </button>
-          </div>
+          </form>
         </div>
       </div>
     </div>

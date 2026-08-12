@@ -3,10 +3,13 @@
 import { useState } from 'react';
 import { useBusiness } from '@/lib/BusinessContext';
 import api from '@/lib/api';
+import { Stamp } from '@/components/ui';
+
+const STEPS = ['Business', 'Contact', 'Verify & launch'] as const;
 
 export default function SetupWizard() {
   const { setCurrentBusiness, setBusinessId } = useBusiness();
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     name: '',
@@ -16,8 +19,13 @@ export default function SetupWizard() {
     phone: '',
   });
 
+  const canContinue = step === 0 ? form.name.trim().length > 0 : true;
+
   const handleSubmit = async () => {
-    if (!form.name) return alert('Please enter a business name.');
+    if (!form.name) {
+      alert('Please enter a business name.');
+      return;
+    }
     setLoading(true);
 
     try {
@@ -53,81 +61,167 @@ export default function SetupWizard() {
   };
 
   return (
-    <div className='max-w-2xl mx-auto'>
-      <div className='card'>
-        <h1 className='text-2xl font-bold text-slate-800 mb-2'>Welcome to METIS</h1>
-        <p className='text-slate-500 mb-6'>Set up your business to get started with your AI workforce.</p>
+    <div className='max-w-2xl mx-auto mt-4 sm:mt-10'>
+      <div className='ledger p-6 sm:p-10'>
+        <p className='kicker mb-1.5'>Form no. 01 · new registration</p>
+        <h1 className='font-display text-3xl font-bold tracking-tight'>Open the shop’s books</h1>
+        <p className='text-ink-soft text-[15px] mt-2 leading-relaxed'>
+          Register your business once. METIS then deploys six specialists — manager, sales, support,
+          marketing, operations, analytics — and puts them on the payroll.
+        </p>
 
-        <div className='flex gap-2 mb-8'>
-          {[1, 2, 3].map((s) => (
-            <div key={s} className={`h-2 flex-1 rounded-full ${s <= step ? 'bg-metis-500' : 'bg-slate-200'}`} />
+        <ol className='flex items-center gap-2 mt-8 mb-8' aria-label='Progress'>
+          {STEPS.map((label, i) => (
+            <li key={label} className='flex-1'>
+              <div className={`h-1.5 ${i <= step ? 'bg-ink' : 'bg-ink/15'}`} />
+              <p className={`font-mono text-[10px] uppercase tracking-[0.14em] mt-2 ${i <= step ? 'text-ink' : 'text-ink-faint'}`}>
+                {String(i + 1).padStart(2, '0')} · {label}
+              </p>
+            </li>
           ))}
-        </div>
+        </ol>
 
-        {step === 1 && (
-          <div className='space-y-4'>
-            <h2 className='text-lg font-semibold'>Business Information</h2>
+        {step === 0 && (
+          <div className='space-y-6'>
             <div>
-              <label className='block text-sm font-medium text-slate-700 mb-1'>Business Name</label>
-              <input className='input' value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder='e.g., Fashion Hub BD' />
+              <label className='label mb-1' htmlFor='wiz-name'>
+                Business name *
+              </label>
+              <input
+                id='wiz-name'
+                className='field'
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder='e.g., Fashion Hub BD'
+              />
             </div>
             <div>
-              <label className='block text-sm font-medium text-slate-700 mb-1'>Category</label>
-              <select className='input' value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
+              <label className='label mb-1' htmlFor='wiz-category'>
+                Category
+              </label>
+              <select
+                id='wiz-category'
+                className='field'
+                value={form.category}
+                onChange={(e) => setForm({ ...form, category: e.target.value })}
+              >
                 <option>Clothing</option>
                 <option>Electronics</option>
                 <option>Cosmetics</option>
-                <option>Food & Beverage</option>
-                <option>Home & Living</option>
+                <option>Food &amp; Beverage</option>
+                <option>Home &amp; Living</option>
                 <option>Other</option>
               </select>
             </div>
             <div>
-              <label className='block text-sm font-medium text-slate-700 mb-1'>Description</label>
-              <textarea className='input' rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder='Tell us about your business...' />
+              <label className='label mb-1' htmlFor='wiz-desc'>
+                Description
+              </label>
+              <textarea
+                id='wiz-desc'
+                className='field'
+                rows={3}
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                placeholder='What do you sell, and to whom? The staff will read this.'
+              />
             </div>
-            <button onClick={() => setStep(2)} className='btn-primary w-full'>Continue</button>
-          </div>
-        )}
-
-        {step === 2 && (
-          <div className='space-y-4'>
-            <h2 className='text-lg font-semibold'>Contact Details</h2>
-            <div>
-              <label className='block text-sm font-medium text-slate-700 mb-1'>Email</label>
-              <input className='input' type='email' value={form.contact_email} onChange={(e) => setForm({ ...form, contact_email: e.target.value })} placeholder='owner@business.com' />
-            </div>
-            <div>
-              <label className='block text-sm font-medium text-slate-700 mb-1'>Phone</label>
-              <input className='input' value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder='+880 1XXX-XXXXXX' />
-            </div>
-            <div className='flex gap-3'>
-              <button onClick={() => setStep(1)} className='btn-secondary flex-1'>Back</button>
-              <button onClick={() => setStep(3)} className='btn-primary flex-1'>Continue</button>
-            </div>
-          </div>
-        )}
-
-        {step === 3 && (
-          <div className='space-y-4'>
-            <h2 className='text-lg font-semibold'>Ready to Launch</h2>
-            <div className='bg-slate-50 rounded-lg p-4 space-y-2'>
-              <p className='text-sm'><strong>Name:</strong> {form.name}</p>
-              <p className='text-sm'><strong>Category:</strong> {form.category}</p>
-              <p className='text-sm'><strong>Email:</strong> {form.contact_email || 'Not provided'}</p>
-              <p className='text-sm'><strong>Phone:</strong> {form.phone || 'Not provided'}</p>
-            </div>
-            <div className='bg-metis-50 border border-metis-200 rounded-lg p-4'>
-              <p className='text-sm text-metis-700'>Your AI workforce is ready. METIS will deploy 6 specialized agents to operate your business.</p>
-            </div>
-            <div className='flex gap-3'>
-              <button onClick={() => setStep(2)} className='btn-secondary flex-1' disabled={loading}>Back</button>
-              <button onClick={handleSubmit} className='btn-primary flex-1' disabled={loading}>
-                {loading ? 'Launching...' : 'Launch METIS'}
+            <div className='flex justify-end pt-2'>
+              <button onClick={() => setStep(1)} disabled={!canContinue} className='btn btn-primary'>
+                Continue →
               </button>
             </div>
           </div>
         )}
+
+        {step === 1 && (
+          <div className='space-y-6'>
+            <div>
+              <label className='label mb-1' htmlFor='wiz-email'>
+                Email
+              </label>
+              <input
+                id='wiz-email'
+                className='field'
+                type='email'
+                value={form.contact_email}
+                onChange={(e) => setForm({ ...form, contact_email: e.target.value })}
+                placeholder='owner@business.com'
+              />
+            </div>
+            <div>
+              <label className='label mb-1' htmlFor='wiz-phone'>
+                Phone
+              </label>
+              <input
+                id='wiz-phone'
+                className='field'
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                placeholder='+880 1XXX-XXXXXX'
+              />
+            </div>
+            <div className='flex gap-3 pt-2'>
+              <button onClick={() => setStep(0)} className='btn btn-ghost flex-1 sm:flex-none'>
+                ← Back
+              </button>
+              <button onClick={() => setStep(2)} className='btn btn-primary flex-1 sm:flex-none'>
+                Continue →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className='space-y-6'>
+            <div className='ledger--flat p-5'>
+              <p className='kicker mb-3'>Registration summary</p>
+              <dl className='space-y-2 font-mono text-[13px]'>
+                <div className='flex justify-between gap-4'>
+                  <dt className='text-ink-soft uppercase text-[10px] tracking-[0.14em] pt-0.5'>Name</dt>
+                  <dd className='text-right'>{form.name || '—'}</dd>
+                </div>
+                <div className='flex justify-between gap-4'>
+                  <dt className='text-ink-soft uppercase text-[10px] tracking-[0.14em] pt-0.5'>Category</dt>
+                  <dd className='text-right'>{form.category}</dd>
+                </div>
+                <div className='flex justify-between gap-4'>
+                  <dt className='text-ink-soft uppercase text-[10px] tracking-[0.14em] pt-0.5'>Email</dt>
+                  <dd className='text-right'>{form.contact_email || 'Not provided'}</dd>
+                </div>
+                <div className='flex justify-between gap-4'>
+                  <dt className='text-ink-soft uppercase text-[10px] tracking-[0.14em] pt-0.5'>Phone</dt>
+                  <dd className='text-right'>{form.phone || 'Not provided'}</dd>
+                </div>
+              </dl>
+            </div>
+
+            <div className='border border-carbon px-5 py-4 flex items-start gap-4'>
+              <span aria-hidden className='font-display text-2xl leading-none text-carbon mt-0.5'>Μ</span>
+              <p className='text-sm text-ink leading-relaxed'>
+                On your word, six specialists clock in: Manager coordinates, Sales talks to customers,
+                Support keeps policy straight, Marketing drafts your next campaign, Operations watches
+                every order and the stockroom, Analytics reads the numbers.
+              </p>
+            </div>
+
+            <div className='flex gap-3 pt-2'>
+              <button onClick={() => setStep(1)} className='btn btn-ghost flex-1 sm:flex-none' disabled={loading}>
+                ← Back
+              </button>
+              <button onClick={handleSubmit} className='btn btn-primary flex-1 sm:flex-none' disabled={loading}>
+                {loading ? 'Posting registration…' : 'Stamp & launch'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className='hidden sm:flex justify-between items-start mt-6 opacity-70'>
+        <Stamp text='Received' tone='danger' small />
+        <p className='font-mono text-[10px] uppercase tracking-[0.18em] text-ink-faint'>
+          Company affairs division · open 24h, no holidays
+        </p>
       </div>
     </div>
   );

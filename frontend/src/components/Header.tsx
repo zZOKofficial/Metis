@@ -3,7 +3,7 @@
 import { useBusiness } from '@/lib/BusinessContext';
 import { useRouter } from 'next/navigation';
 
-export default function Header() {
+export default function Header({ onMenu }: { onMenu: () => void }) {
   const { currentBusiness, clearBusiness } = useBusiness();
   const router = useRouter();
 
@@ -15,19 +15,37 @@ export default function Header() {
   };
 
   return (
-    <header className='h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6'>
-      <div className='flex items-center gap-4'>
-        <h2 className='text-lg font-semibold text-slate-700'>{currentBusiness?.name || 'METIS'}</h2>
-        {currentBusiness && <span className='badge badge-blue'>{currentBusiness.category}</span>}
-      </div>
-      <div className='flex items-center gap-3'>
-        {currentBusiness && (
-          <>
-            <span className='text-sm text-slate-500'>AI Workforce Active</span>
-            <span className='w-2 h-2 bg-green-500 rounded-full animate-pulse'></span>
-            <button onClick={handleReset} className='btn-secondary text-xs ml-3'>Reset</button>
-          </>
-        )}
+    <header className='bg-ink text-card border-b border-white/10 lg:h-[52px] h-auto'>
+      <div className='flex items-center justify-between gap-3 px-4 sm:px-8 lg:px-12 py-2.5'>
+        <div className='flex items-center gap-3 min-w-0'>
+          <button
+            onClick={onMenu}
+            aria-label='Open menu'
+            className='lg:hidden font-mono text-sm text-card/70 border border-card/30 px-2 py-1 leading-none'
+          >
+            ☰
+          </button>
+          <p className='font-display text-base font-bold truncate'>{currentBusiness?.name || 'METIS'}</p>
+          {currentBusiness && (
+            <span className='ticket ticket--carbon hidden sm:inline-flex'>{currentBusiness.category}</span>
+          )}
+        </div>
+        <div className='flex items-center gap-4'>
+          {currentBusiness && (
+            <>
+              <span className='hidden md:flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-card/50'>
+                <span aria-hidden className='inline-block w-1.5 h-1.5 rounded-full bg-ok blink' />
+                Workforce on duty
+              </span>
+              <button
+                onClick={handleReset}
+                className='font-mono text-[10px] uppercase tracking-[0.14em] text-card/60 border border-card/25 px-2.5 py-1 hover:text-card hover:border-card/60 transition-colors'
+              >
+                Reset
+              </button>
+            </>
+          )}
+        </div>
       </div>
     </header>
   );

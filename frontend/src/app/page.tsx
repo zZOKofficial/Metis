@@ -6,6 +6,7 @@ import api from '@/lib/api';
 import { useDataRefresh } from '@/lib/refresh';
 import { DashboardMetrics, AgentStatus } from '@/types';
 import SetupWizard from '@/components/SetupWizard';
+import { Docket, LoadingState, AgentDot, AGENT_LABEL, Cash } from '@/components/ui';
 
 export default function DashboardPage() {
   const { businessId, currentBusiness } = useBusiness();
@@ -43,82 +44,134 @@ export default function DashboardPage() {
     return <SetupWizard />;
   }
 
-  if (loading) {
-    return <div className='flex items-center justify-center h-full'><p className='text-slate-500'>Loading dashboard...</p></div>;
-  }
+  const lowStock = metrics?.low_stock_products || [];
 
   return (
-    <div className='space-y-6'>
-      <div className='flex items-center justify-between'>
-        <h1 className='text-2xl font-bold text-slate-800'>{currentBusiness?.name || 'Dashboard'}</h1>
-        <button onClick={loadData} className='btn-secondary'>Refresh</button>
-      </div>
+    <div className='space-y-8'>
+      <Docket
+        title={currentBusiness?.name || 'Daily register'}
+        memo='business overview · work of the day'
+        action={
+          <button onClick={loadData} className='btn btn-ghost'>
+            ↻ Recheck
+          </button>
+        }
+      />
 
-      <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4'>
-        <MetricCard title='Revenue' value={`৳${(metrics?.total_revenue || 0).toLocaleString()}`} subtitle='Total revenue' color='blue' />
-        <MetricCard title='Orders' value={metrics?.total_orders || 0} subtitle='Total orders' color='green' />
-        <MetricCard title='Customers' value={metrics?.total_customers || 0} subtitle='Total customers' color='purple' />
-        <MetricCard title='Conversion' value={`${metrics?.conversion_rate || 0}%`} subtitle='Conversion rate' color='orange' />
-      </div>
+      {loading ? (
+        <LoadingState label='pulling the day’s records…' />
+      ) : (
+        <>
+          <section className='ledger overflow-hidden' aria-label='Headline figures'>
+            <p className='kicker px-5 pt-4'>Register · total to date</p>
+            <div className='grid grid-cols-2 lg:grid-cols-4 divide-x divide-[var(--rule)] border-t border-[var(--rule)]'>
+              <RegisterFigure label='Revenue' value={<Cash value={metrics?.total_revenue || 0} />} />
+              <RegisterFigure label='Orders' value={String(metrics?.total_orders || 0)} />
+              <RegisterFigure label='Customers' value={String(metrics?.total_customers || 0)} />
+              <RegisterFigure label='Conversion' value={`${metrics?.conversion_rate || 0}%`} />
+            </div>
+            {metrics && metrics.average_order_value > 0 && (
+              <p className='px-5 pb-4 pt-3 font-mono text-[11px] uppercase tracking-[0.14em] text-ink-soft'>
+                Avg. order value · <Cash value={metrics.average_order_value} className='text-ink' />
+                &nbsp;&nbsp;·&nbsp;&nbsp;{metrics.total_orders} order{metrics.total_orders === 1 ? '' : 's'} on the books
+              </p>
+            )}
+          </section>
 
-      <div className='grid grid-cols-1 lg:grid-cols-2 gap-6'>
-        <div className='card'>
-          <h3 className='font-semibold text-slate-800 mb-4'>AI Recommendations</h3>
-          <div className='space-y-3'>
-            {metrics?.recommendations?.map((rec, i) => (
-              <div key={i} className='flex items-start gap-3 p-3 bg-slate-50 rounded-lg'>
-                <span className='text-metis-500 mt-0.5'>→</span>
-                <p className='text-sm text-slate-600'>{rec}</p>
+          <div className='grid grid-cols-1 lg:grid-cols-2 gap-8'>
+            <section className='ledger p-5' aria-label='Agents on duty'>
+              <div className='flex items-baseline justify-between mb-1'>
+                <h2 className='kicker'>Staff roster · agents on duty</h2>
+                <span className='font-mono text-[10px] uppercase tracking-[0.14em] text-ink-faint'>
+                  {agents.length} of 6
+                </span>
               </div>
-            )) || <p className='text-slate-400 text-sm'>No recommendations yet.</p>}
-          </div>
-        </div>
+              <ul className='divide-y divide-[var(--rule)]'>
+                {agents.length === 0 && (
+                  <li className='py-4 font-mono text-xs uppercase tracking-[0.1em] text-ink-faint'>
+                    Roster empty — agents are clocking in.
+                  </li>
+                )}
+                {agents.map((agent) => (
+                  <li key={agent.type} className='flex items-center justify-between gap-3 py-3'>
+                    <div className='flex items-center gap-3 min-w-0'>
+                      <AgentDot type={agent.type} />
+                      <span className='font-display text-[15px] font-semibold truncate'>
+                        {AGENT_LABEL[agent.type] || agent.name} Agent
+                      </span>
+                    </div>
+                    <div className='flex items-center gap-3'>
+                      <span className='font-mono text-xs tabular text-ink-soft hidden sm:inline'>
+                        {agent.tasks_completed} tasks
+                      </span>
+                      <span className='ticket ticket--ok'>active</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
 
-        <div className='card'>
-          <h3 className='font-semibold text-slate-800 mb-4'>Agent Activity</h3>
-          <div className='space-y-3'>
-            {agents.map((agent) => (
-              <div key={agent.type} className='flex items-center justify-between p-3 bg-slate-50 rounded-lg'>
-                <div className='flex items-center gap-3'>
-                  <span className='w-2 h-2 bg-green-500 rounded-full'></span>
-                  <span className='text-sm font-medium text-slate-700'>{agent.name}</span>
+            <section className='ledger p-5' aria-label='Manager memo'>
+              <h2 className='kicker mb-1'>From the manager’s desk</h2>
+              <div className='mt-4 space-y-3'>
+                {(metrics?.recommendations?.length ?? 0) === 0 ? (
+                  <p className='font-mono text-xs uppercase tracking-[0.1em] text-ink-faint'>
+                    No instructions yet. Ask the Manager in Business Chat.
+                  </p>
+                ) : (
+                  metrics!.recommendations.map((rec, i) => (
+                    <p key={i} className='text-[15px] leading-relaxed text-ink pl-4 border-l-2 border-carbon'>
+                      {rec}
+                    </p>
+                  ))
+                )}
+              </div>
+
+              {(metrics?.top_products?.length ?? 0) > 0 && (
+                <div className='mt-6'>
+                  <p className='kicker mb-1'>Top sellers</p>
+                  <ul className='divide-y divide-[var(--rule)]'>
+                    {metrics!.top_products.slice(0, 4).map((p, i) => (
+                      <li key={p.product_id || i} className='flex items-baseline justify-between gap-3 py-2'>
+                        <span className='font-mono text-xs tabular text-ink-soft w-5'>
+                          {String(i + 1).padStart(2, '0')}
+                        </span>
+                        <span className='flex-1 text-sm truncate'>{p.name}</span>
+                        <span className='font-mono text-xs tabular text-ink-soft'>{p.units_sold} units</span>
+                        <Cash value={p.revenue} className='font-mono text-sm font-semibold w-24 text-right' />
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                <span className='text-sm text-slate-500'>{agent.tasks_completed} tasks</span>
-              </div>
-            ))}
+              )}
+            </section>
           </div>
-        </div>
-      </div>
 
-      {(metrics?.low_stock_products?.length ?? 0) > 0 && (
-        <div className='card border-l-4 border-l-yellow-400'>
-          <h3 className='font-semibold text-slate-800 mb-3'>⚠️ Low Stock Alerts</h3>
-          <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3'>
-            {metrics?.low_stock_products?.map((p) => (
-              <div key={p.id} className='flex items-center justify-between p-3 bg-yellow-50 rounded-lg'>
-                <span className='text-sm font-medium text-slate-700'>{p.name}</span>
-                <span className='badge badge-yellow'>{p.stock} left</span>
+          {lowStock.length > 0 && (
+            <section className='ledger p-5' aria-label='Low stock alerts'>
+              <h2 className='kicker mb-3'>
+                Stockroom warning · operations agent is watching
+              </h2>
+              <div className='flex flex-wrap gap-3'>
+                {lowStock.map((p) => (
+                  <span key={p.id} className='ticket ticket--danger !border-dashed'>
+                    {p.name} · {p.stock} left
+                  </span>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
+            </section>
+          )}
+        </>
       )}
     </div>
   );
 }
 
-function MetricCard({ title, value, subtitle, color }: { title: string; value: string | number; subtitle: string; color: string }) {
-  const colors: Record<string, string> = {
-    blue: 'bg-blue-50 text-blue-700 border-blue-200',
-    green: 'bg-green-50 text-green-700 border-green-200',
-    purple: 'bg-purple-50 text-purple-700 border-purple-200',
-    orange: 'bg-orange-50 text-orange-700 border-orange-200',
-  };
+function RegisterFigure({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className={`card border ${colors[color]}`}>
-      <p className='text-sm font-medium opacity-75'>{title}</p>
-      <p className='text-3xl font-bold mt-1'>{value}</p>
-      <p className='text-xs mt-1 opacity-60'>{subtitle}</p>
+    <div className='px-5 py-5'>
+      <p className='kicker'>{label}</p>
+      <p className='font-mono text-3xl sm:text-[34px] font-semibold tabular mt-2 leading-none'>{value}</p>
     </div>
   );
 }

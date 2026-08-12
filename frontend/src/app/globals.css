@@ -3,38 +3,375 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 15, 23, 42;
-  --background-start-rgb: 248, 250, 252;
-  --background-end-rgb: 241, 245, 249;
+  --paper: #f4efe3;
+  --card: #fcfaf3;
+  --ink: #201d17;
+  --ink-soft: #6e675a;
+  --ink-faint: #9b9484;
+  --carbon: #2e5e9e;
+  --stamp: #b03a2e;
+  --ok: #3f7049;
+  --rule: rgba(32, 29, 23, 0.14);
+  --font-display: 'Bricolage Grotesque', Georgia, serif;
+  --font-body: 'Archivo', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', Menlo, monospace;
 }
 
-body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(180deg, rgb(var(--background-start-rgb)), rgb(var(--background-end-rgb)));
-  min-height: 100vh;
+@layer base {
+  html {
+    scrollbar-color: var(--ink-faint) transparent;
+  }
+
+  body {
+    color: var(--ink);
+    background: var(--paper);
+    font-family: var(--font-body), system-ui, sans-serif;
+  }
+
+  ::selection {
+    background: var(--carbon);
+    color: var(--paper);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--carbon);
+    outline-offset: 2px;
+  }
+
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
+    color: inherit;
+  }
 }
 
 @layer components {
-  .card {
-    @apply bg-white rounded-xl shadow-sm border border-slate-200 p-6;
+  .font-display {
+    font-family: var(--font-display), Georgia, serif;
   }
+  .font-body {
+    font-family: var(--font-body), system-ui, sans-serif;
+  }
+  .font-mono {
+    font-family: var(--font-mono), Menlo, monospace;
+  }
+
+  /* The desk: ruled ledger paper behind every page */
+  .desk {
+    background-color: var(--paper);
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 27px,
+      var(--rule) 27px,
+      var(--rule) 28px
+    );
+  }
+
+  /* A printed form: hard offset border, like mis-registered ink */
+  .ledger {
+    background: var(--card);
+    border: 1px solid var(--ink);
+    box-shadow: 2.5px 2.5px 0 0 rgba(32, 29, 23, 0.85);
+  }
+  .ledger--flat {
+    background: var(--card);
+    border: 1px solid var(--ink);
+  }
+
+  .kicker {
+    font-family: var(--font-mono), Menlo, monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  .label {
+    display: block;
+    font-family: var(--font-mono), Menlo, monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  .field {
+    width: 100%;
+    background: transparent;
+    border: 0;
+    border-bottom: 1.5px solid var(--ink-faint);
+    border-radius: 0;
+    padding: 7px 0;
+    font-family: var(--font-body), system-ui, sans-serif;
+    font-size: 15px;
+    color: var(--ink);
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .field::placeholder {
+    color: var(--ink-faint);
+    font-style: italic;
+  }
+  .field:focus {
+    outline: none;
+    border-bottom-color: var(--carbon);
+    box-shadow: 0 1px 0 0 var(--carbon);
+  }
+  select.field {
+    cursor: pointer;
+  }
+  select.field:invalid,
+  select.field:has(option:first-child[value='']) {
+    color: var(--ink-faint);
+  }
+  textarea.field {
+    resize: vertical;
+    min-height: 74px;
+    line-height: 1.6;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-family: var(--font-body), system-ui, sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 10px 18px;
+    border-radius: 0;
+    cursor: pointer;
+    transition:
+      transform 120ms ease,
+      box-shadow 120ms ease,
+      background-color 120ms ease,
+      color 120ms ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
   .btn-primary {
-    @apply bg-metis-600 text-white px-4 py-2 rounded-lg hover:bg-metis-700 transition-colors font-medium;
+    background: var(--ink);
+    color: var(--card);
+    box-shadow: 2.5px 2.5px 0 0 var(--carbon);
   }
-  .btn-secondary {
-    @apply bg-slate-100 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors font-medium;
+  .btn-primary:hover:not(:disabled) {
+    transform: translate(1px, 1px);
+    box-shadow: 1.5px 1.5px 0 0 var(--carbon);
   }
-  .btn-danger {
-    @apply bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors font-medium;
+  .btn-primary:active:not(:disabled) {
+    transform: translate(2.5px, 2.5px);
+    box-shadow: 0 0 0 0 var(--carbon);
   }
-  .input {
-    @apply w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-metis-500 focus:border-transparent outline-none;
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--ink);
+    box-shadow: 1.5px 1.5px 0 0 rgba(32, 29, 23, 0.85);
   }
-  .badge {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  .btn-ghost:hover:not(:disabled) {
+    transform: translate(1px, 1px);
+    box-shadow: 0.5px 0.5px 0 0 rgba(32, 29, 23, 0.85);
   }
-  .badge-green { @apply bg-green-100 text-green-800; }
-  .badge-yellow { @apply bg-yellow-100 text-yellow-800; }
-  .badge-red { @apply bg-red-100 text-red-800; }
-  .badge-blue { @apply bg-blue-100 text-blue-800; }
+
+  .btn-ok {
+    background: var(--ok);
+    color: var(--card);
+  }
+  .btn-ok:hover:not(:disabled) {
+    filter: brightness(0.92);
+  }
+
+  .btn-danger-ghost {
+    background: transparent;
+    color: var(--stamp);
+    border: 1px solid var(--stamp);
+  }
+  .btn-danger-ghost:hover:not(:disabled) {
+    background: var(--stamp);
+    color: var(--card);
+  }
+
+  .ticket {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    font-family: var(--font-mono), Menlo, monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border: 1px solid currentColor;
+    color: var(--ink-soft);
+    white-space: nowrap;
+  }
+  .ticket--ok {
+    color: var(--ok);
+  }
+  .ticket--warn {
+    color: var(--marketing, #b07a2e);
+  }
+  .ticket--danger {
+    color: var(--stamp);
+  }
+  .ticket--carbon {
+    color: var(--carbon);
+  }
+
+  /* The rubber stamp — the signature of the approval desk */
+  .stamp {
+    display: inline-block;
+    font-family: var(--font-mono), Menlo, monospace;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    line-height: 1.2;
+    text-align: center;
+    padding: 10px 18px 9px;
+    border: 3px double currentColor;
+    border-radius: 4px;
+    color: inherit;
+    -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="80"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix type="matrix" values="0 0 0 0 0, 0 0 0 0 0, 0 0 0 0 0, 0.9 0.9 0.9 0.9 0.15"/></filter><rect width="200" height="80" filter="url(%23n)"/></svg>');
+    mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="80"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix type="matrix" values="0 0 0 0 0, 0 0 0 0 0, 0 0 0 0 0, 0.9 0.9 0.9 0.9 0.15"/></filter><rect width="200" height="80" filter="url(%23n)"/></svg>');
+    -webkit-mask-size: 200px 80px;
+    mask-size: 200px 80px;
+  }
+  .stamp--ok {
+    color: var(--ok);
+  }
+  .stamp--danger {
+    color: var(--stamp);
+  }
+  .stamp--small {
+    font-size: 10px;
+    padding: 5px 10px 4px;
+    letter-spacing: 0.18em;
+  }
+  .stamp--lone {
+    mix-blend-mode: multiply;
+  }
+
+  @keyframes stamp-slam {
+    0% {
+      transform: scale(2.3) rotate(-16deg);
+      opacity: 0;
+      filter: blur(1px);
+    }
+    55% {
+      transform: scale(0.94) rotate(-10deg);
+      opacity: 1;
+      filter: none;
+    }
+    72% {
+      transform: scale(1.04) rotate(-10deg);
+    }
+    100% {
+      transform: scale(1) rotate(-10deg);
+    }
+  }
+  .stamp--slam {
+    animation: stamp-slam 0.42s cubic-bezier(0.2, 0.7, 0.3, 1.4) both;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .stamp--slam {
+      animation: none;
+    }
+  }
+
+  /* Active nav marker on the ink rail */
+  .rail-item {
+    position: relative;
+    font-family: var(--font-mono), Menlo, monospace;
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(252, 250, 243, 0.62);
+    transition:
+      color 120ms ease,
+      background-color 120ms ease;
+  }
+  .rail-item:hover {
+    color: var(--card);
+  }
+  .rail-item--active {
+    color: var(--ink);
+    background: var(--card);
+  }
+  .rail-item--active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--carbon);
+  }
+
+  @keyframes blink {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0;
+    }
+  }
+  .blink {
+    animation: blink 1.6s steps(1) infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .blink {
+      animation: none;
+    }
+  }
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  .fade-up {
+    animation: fade-up 0.35s ease both;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .fade-up {
+      animation: none;
+    }
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  .rule-b {
+    border-bottom: 1px solid var(--rule);
+  }
+  .rule-t {
+    border-top: 1px solid var(--rule);
+  }
+  .dashed-print {
+    border-top: 2px dashed rgba(32, 29, 23, 0.35);
+  }
+  .press {
+    transform: translate(1px, 1px);
+  }
 }

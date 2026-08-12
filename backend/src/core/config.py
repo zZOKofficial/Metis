@@ -18,9 +18,9 @@ class Settings(BaseSettings):
 
     # Application
     APP_NAME: str = 'METIS'
-    APP_VERSION: str = '0.1.0'
+    APP_VERSION: str = '0.2.0'
     DEBUG: bool = True
-    CORS_ORIGINS: list[str] = ['http://localhost:3000']
+    CORS_ORIGINS: list[str] = ['http://localhost:3000', 'http://localhost:8000']
 
     # Firestore
     FIRESTORE_DATABASE: str = '(default)'
