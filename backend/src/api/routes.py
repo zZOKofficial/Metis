@@ -13,6 +13,7 @@ from ..models.schemas import (
     AgentType,
     RiskLevel,
     AiConfigRequest,
+    REVENUE_STATUSES,
 )
 from ..services.firestore import (
     business_service,
@@ -280,7 +281,7 @@ def chat_with_manager(business_id: str, data: ChatRequest):
     products = context.get('products') or []
     orders = context.get('orders') or []
     customers = context.get('customers') or []
-    total_revenue = sum(float(o.get('total_amount') or 0) for o in orders)
+    total_revenue = sum(float(o.get('total_amount') or 0) for o in orders if o.get('status') in REVENUE_STATUSES)
     low_stock = [p for p in products if p.get('stock', 0) <= 5]
 
     recent_orders = '\n'.join(
@@ -320,6 +321,7 @@ You have tools available. Prefer calling a tool over guessing:
 - For questions about performance, orders, inventory or products, call the matching read-only tool.
 - If the owner asks to create an order or a marketing campaign, call the matching tool - it will create an approval request for the owner to review.
 - If the owner asks to change an order's status, call update_order_status.
+- If the owner asks to restock a product (add stock / top up a product that is low or out of stock), call restock_product with the product ID and the quantity to add - it executes immediately.
 
 After the tools run, summarize concisely what you did or what is awaiting approval.'''
 
@@ -467,17 +469,23 @@ def storefront_chat(business_id: str, data: StorefrontChatRequest):
 Catalog:
 {product_list or '  - (the catalog is currently empty)'}
 
+Customer: {customer['name'] if customer else 'a guest'} (customer ID: {customer['id'] if customer else 'unknown'})
+
 A customer says: "{data.message}"
 
 Be a helpful, honest shop assistant:
 - Recommend only products from the catalog above — never invent products, prices, or stock.
 - Mention what is in stock; note items with low stock.
-- If the customer wants to buy one or more items, call create_order with the exact product ID and quantity.
+- If the customer wants to buy one or more items, call create_order with the customer ID above and the exact product ID and quantity.
 - Keep answers friendly and concise.'''
 
     agent_actions: list[dict] = []
 
     def _run_tool(name: str, args: dict) -> dict:
+        # The storefront knows the shopper; never trust the model's customer id.
+        if name == 'create_order' and customer:
+            args = dict(args)
+            args['customer_id'] = customer['id']
         outcome = handle_storefront_tool_call(business_id, name, args)
         agent_actions.append({
             'action': name,

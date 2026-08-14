@@ -1,7 +1,7 @@
 ﻿from typing import Any
 
 from .base import BaseAgent
-from ..models.schemas import AgentType, AgentMessage, AgentResponse
+from ..models.schemas import AgentType, AgentMessage, AgentResponse, REVENUE_STATUSES
 from ..services.firestore import order_service, product_service, customer_service, agent_log_service
 
 
@@ -52,11 +52,18 @@ Communication style: Data-driven, precise, insightful.'''
                     o for o in orders
                     if isinstance(o.get('created_at'), datetime) and o['created_at'] >= cutoff
                 ]
-        total = sum(float(o.get('total_amount') or 0) for o in orders)
-        return {'total_revenue': total, 'order_count': len(orders), 'average_order_value': total / len(orders) if orders else 0}
+        # Only confirmed/processing/shipped/delivered orders count as revenue.
+        recognized = [o for o in orders if o.get('status') in REVENUE_STATUSES]
+        total = sum(float(o.get('total_amount') or 0) for o in recognized)
+        return {
+            'total_revenue': total,
+            'order_count': len(orders),
+            'recognized_order_count': len(recognized),
+            'average_order_value': total / len(recognized) if recognized else 0,
+        }
 
     def get_top_products(self, limit: int = 5) -> list[dict[str, Any]]:
-        orders = order_service.list_all([('business_id', '==', self.business_id)])
+        orders = [o for o in order_service.list_all([('business_id', '==', self.business_id)]) if o.get('status') in REVENUE_STATUSES]
         product_sales = {}
         for order in orders:
             for item in order.get('items', []):

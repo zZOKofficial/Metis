@@ -14,6 +14,7 @@ const STATUS_TONE: Record<string, string> = {
   shipped: 'ticket--carbon',
   delivered: 'ticket--ok',
   cancelled: 'ticket--danger',
+  returned: 'ticket--danger',
 };
 
 export default function OrdersPage() {

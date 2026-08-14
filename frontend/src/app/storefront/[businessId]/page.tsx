@@ -8,8 +8,8 @@ import { Business, ChatMessage, Product } from '@/types';
 import Markdown from '@/components/Markdown';
 import { Cash, AgentDot } from '@/components/ui';
 
-const SESSION_KEY = 'metis_storefront_session';
-const SHOPPER_KEY = 'metis_storefront_shopper';
+const sessionKey = (businessId: string) => `metis_storefront_${businessId}_session`;
+const shopperKey = (businessId: string) => `metis_storefront_${businessId}_shopper`;
 
 const GREETING: ChatMessage = {
   role: 'assistant',
@@ -34,27 +34,26 @@ function saveJson(key: string, value: unknown) {
   }
 }
 
+function getOrCreateSessionId(businessId: string): string {
+  const key = sessionKey(businessId);
+  const existing = loadJson<{ id: string }>(key);
+  if (existing?.id) return existing.id;
+  const id =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `sess-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  saveJson(key, { id });
+  return id;
+}
+
 export default function StorefrontPage() {
   const params = useParams<{ businessId: string }>();
   const businessId = params.businessId;
 
-  const [sessionId] = useState<string>(() => {
-    const existing = loadJson<{ id: string }>(SESSION_KEY);
-    if (existing?.id) return existing.id;
-    const id =
-      typeof crypto !== 'undefined' && 'randomUUID' in crypto
-        ? crypto.randomUUID()
-        : `sess-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-    saveJson(SESSION_KEY, { id });
-    return id;
-  });
-
+  const [sessionId, setSessionId] = useState<string>('');
   const [business, setBusiness] = useState<Business | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
-  const [shopper, setShopper] = useState<{ customer_id: string; name: string } | null>(() => {
-    const saved = loadJson<{ customer_id: string; name: string }>(SHOPPER_KEY);
-    return saved?.customer_id ? saved : null;
-  });
+  const [shopper, setShopper] = useState<{ customer_id: string; name: string } | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [entering, setEntering] = useState(false);
@@ -68,6 +67,15 @@ export default function StorefrontPage() {
 
   useEffect(() => {
     if (!businessId) return;
+    const savedShopper = loadJson<{ customer_id: string; name: string }>(shopperKey(businessId));
+    setShopper(savedShopper?.customer_id ? savedShopper : null);
+  }, [businessId]);
+
+  useEffect(() => {
+    if (!businessId) return;
+    const sid = getOrCreateSessionId(businessId);
+    setSessionId(sid);
+    setMessages([GREETING]);
     let cancelled = false;
     api
       .get(`/business/${businessId}`)
@@ -87,7 +95,7 @@ export default function StorefrontPage() {
       });
     // Session-scoped server history survives page reloads
     api
-      .get(`/storefront/${businessId}/history?session_id=${encodeURIComponent(sessionId)}&limit=50`)
+      .get(`/storefront/${businessId}/history?session_id=${encodeURIComponent(sid)}&limit=50`)
       .then((res) => {
         if (cancelled) return;
         const serverMessages: ChatMessage[] = (res.data || []).map((m: any) => ({
@@ -120,7 +128,7 @@ export default function StorefrontPage() {
       const customer_id = res.data?.id;
       if (!customer_id) throw new Error('No customer id');
       const saved = { customer_id, name: trimmed };
-      saveJson(SHOPPER_KEY, saved);
+      saveJson(shopperKey(businessId), saved);
       setShopper(saved);
       setMessages((prev) => [
         ...prev,

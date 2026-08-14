@@ -1,8 +1,18 @@
 ﻿from typing import Any
 
 from .base import BaseAgent
-from ..models.schemas import AgentType, AgentMessage, AgentResponse, OrderStatus
-from ..services.firestore import order_service, product_service
+from ..models.schemas import (
+    AgentType,
+    AgentMessage,
+    AgentResponse,
+    OrderStatus,
+    ORDER_RELEASED_STATUSES,
+)
+from ..services.firestore import (
+    order_service,
+    product_service,
+    customer_service,
+)
 
 
 class OperationsAgent(BaseAgent):
@@ -45,15 +55,115 @@ Communication style: Organized, precise, proactive.'''
         if not order or order.get('business_id') != self.business_id:
             return {'success': False, 'error': 'Order not found.'}
         old_status = order.get('status')
+        if old_status == new_status.value:
+            return {
+                'success': True,
+                'order_id': order_id,
+                'old_status': old_status,
+                'new_status': new_status.value,
+            }
+
+        # An order holds stock and counts toward customer spend from creation
+        # until it reaches a released status (cancelled / returned). Moving
+        # into a released status reverses those bookings; coming back out of
+        # one re-applies them.
+        was_released = old_status in ORDER_RELEASED_STATUSES
+        is_released = new_status.value in ORDER_RELEASED_STATUSES
+        if not was_released and is_released:
+            self._release_order_bookings(order)
+        elif was_released and not is_released:
+            self._reapply_order_bookings(order)
+
         order_service.update(order_id, {'status': new_status.value})
-        self.log_action(action='update_order_status', details={'order_id': order_id, 'old_status': old_status, 'new_status': new_status.value}, result=f'Order status: {old_status} -> {new_status.value}')
-        return {'success': True, 'order_id': order_id, 'old_status': old_status, 'new_status': new_status.value}
+        self.log_action(
+            action='update_order_status',
+            details={
+                'order_id': order_id,
+                'old_status': old_status,
+                'new_status': new_status.value,
+                'released': is_released and not was_released,
+            },
+            result=f'Order status: {old_status} -> {new_status.value}',
+        )
+        return {
+            'success': True,
+            'order_id': order_id,
+            'old_status': old_status,
+            'new_status': new_status.value,
+        }
+
+    def _release_order_bookings(self, order: dict[str, Any]) -> None:
+        """Restore inventory and undo the customer spend booked at creation."""
+        for item in order.get('items', []):
+            product = product_service.get(item.get('product_id', ''))
+            if product and product.get('business_id') == self.business_id:
+                new_stock = product.get('stock', 0) + int(item.get('quantity', 0))
+                update = {'stock': new_stock}
+                if product.get('status') == 'out_of_stock' and new_stock > 0:
+                    update['status'] = 'active'
+                product_service.update(product['id'], update)
+        customer = customer_service.get(order.get('customer_id', ''))
+        if customer and customer.get('business_id') == self.business_id:
+            customer_service.update(customer['id'], {
+                'total_orders': max(0, customer.get('total_orders', 0) - 1),
+                'total_spent': max(0.0, float(customer.get('total_spent', 0)) - float(order.get('total_amount', 0))),
+            })
+
+    def _reapply_order_bookings(self, order: dict[str, Any]) -> None:
+        """Re-deduct inventory and re-book customer spend for a revived order."""
+        for item in order.get('items', []):
+            product = product_service.get(item.get('product_id', ''))
+            if product and product.get('business_id') == self.business_id:
+                product_service.update(product['id'], {
+                    'stock': max(0, product.get('stock', 0) - int(item.get('quantity', 0))),
+                })
+        customer = customer_service.get(order.get('customer_id', ''))
+        if customer and customer.get('business_id') == self.business_id:
+            customer_service.update(customer['id'], {
+                'total_orders': customer.get('total_orders', 0) + 1,
+                'total_spent': customer.get('total_spent', 0) + float(order.get('total_amount', 0)),
+            })
 
     def get_all_orders(self, status_filter: str = '') -> list[dict[str, Any]]:
         filters = [('business_id', '==', self.business_id)]
         if status_filter:
             filters.append(('status', '==', status_filter))
         return order_service.list_all(filters)
+
+    def restock_product(self, product_ref: str, quantity: int) -> dict[str, Any]:
+        '''Add stock to a product (restock). Resolves by ID or name.'''
+        try:
+            quantity = int(quantity)
+        except (TypeError, ValueError):
+            return {'success': False, 'error': 'Quantity must be a whole number.'}
+        if quantity <= 0:
+            return {'success': False, 'error': 'Quantity must be greater than zero.'}
+
+        from ..agents.sales import SalesAgent
+        product = SalesAgent(self.business_id).resolve_product(product_ref)
+        if not product:
+            return {'success': False, 'error': f'Product {product_ref} not found.'}
+
+        old_stock = product.get('stock', 0)
+        new_stock = old_stock + quantity
+        update = {'stock': new_stock}
+        if product.get('status') == 'out_of_stock' and new_stock > 0:
+            update['status'] = 'active'
+        product_service.update(product['id'], update)
+
+        self.log_action(
+            action='restock_product',
+            details={'product_id': product['id'], 'quantity': quantity, 'old_stock': old_stock, 'new_stock': new_stock},
+            result=f'Restocked {product["name"]}: {old_stock} -> {new_stock}',
+        )
+        return {
+            'success': True,
+            'product_id': product['id'],
+            'name': product['name'],
+            'old_stock': old_stock,
+            'quantity_added': quantity,
+            'new_stock': new_stock,
+        }
 
     def check_inventory_levels(self) -> dict[str, Any]:
         products = product_service.list_all([('business_id', '==', self.business_id)])

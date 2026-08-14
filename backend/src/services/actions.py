@@ -135,6 +135,24 @@ TOOL_DECLARATIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "restock_product",
+        "description": "Add stock to an existing product (restock it). Executes immediately; no approval required.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "product_id": {
+                    "type": "STRING",
+                    "description": "The product ID or name to restock.",
+                },
+                "quantity": {
+                    "type": "INTEGER",
+                    "description": "Number of units to add to stock.",
+                },
+            },
+            "required": ["product_id", "quantity"],
+        },
+    },
+    {
         "name": "create_campaign",
         "description": "Create a marketing campaign for a product. Requires owner approval, so an approval request is created instead of executing immediately.",
         "parameters": {
@@ -193,6 +211,9 @@ def handle_tool_call(business_id: str, name: str, args: dict[str, Any]) -> dict[
 
     if name == "update_order_status":
         return _update_order_status(business_id, args)
+
+    if name == "restock_product":
+        return _restock_product(business_id, args)
 
     return _read_only(business_id, name, args)
 
@@ -262,6 +283,17 @@ def _update_order_status(business_id: str, args: dict[str, Any]) -> dict[str, An
     return {"status": "executed", "result": result}
 
 
+def _restock_product(business_id: str, args: dict[str, Any]) -> dict[str, Any]:
+    operations = get_agent(AgentType.OPERATIONS, business_id)
+    result = operations.restock_product(
+        product_ref=args.get("product_id", ""),
+        quantity=args.get("quantity", 0),
+    )
+    if not result.get("success"):
+        return {"status": "failed", "error": result.get("error", "Restock failed.")}
+    return {"status": "executed", "result": result}
+
+
 def _stage_action(business_id: str, name: str, args: dict[str, Any]) -> dict[str, Any]:
     manager = get_agent(AgentType.MANAGER, business_id)
 
@@ -273,12 +305,40 @@ def _stage_action(business_id: str, name: str, args: dict[str, Any]) -> dict[str
                 "status": "failed",
                 "error": "create_order requires customer_id and at least one item.",
             }
+        sales = get_agent(AgentType.SALES, business_id)
+        customer = sales.resolve_customer(customer_id)
+        if not customer:
+            return {
+                "status": "failed",
+                "error": f"Customer '{customer_id}' not found. Provide a valid customer ID or name.",
+            }
+        customer_id = customer["id"]
+        canonical_items = []
+        for item in items:
+            if not isinstance(item, dict) or not item.get("product_id"):
+                return {
+                    "status": "failed",
+                    "error": "Each order item must include a product_id.",
+                }
+            product = sales.resolve_product(item["product_id"])
+            if not product:
+                return {
+                    "status": "failed",
+                    "error": f"Product '{item['product_id']}' not found.",
+                }
+            try:
+                qty = int(item.get("quantity", 1) or 1)
+            except (TypeError, ValueError):
+                return {"status": "failed", "error": "Quantity must be a whole number."}
+            if qty <= 0:
+                return {"status": "failed", "error": "Quantity must be greater than zero."}
+            canonical_items.append({"product_id": product["id"], "quantity": qty})
         approval_id = manager.request_approval(
             agent_type=AgentType.SALES,
-            action=f"Create order for customer {customer_id}",
+            action=f"Create order for customer {customer['name']} ({customer_id})",
             reason="New order requested via chat. Your approval is required before the order is created and inventory is updated.",
             risk_level=STAGED_RISK["create_order"],
-            details={"tool": "create_order", "params": {"customer_id": customer_id, "items": items}},
+            details={"tool": "create_order", "params": {"customer_id": customer_id, "items": canonical_items}},
         )
         return {
             "status": "staged",

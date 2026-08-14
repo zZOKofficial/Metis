@@ -7,6 +7,7 @@ from ..models.schemas import (
     AgentMessage,
     AgentResponse,
     RiskLevel,
+    REVENUE_STATUSES,
 )
 from ..services.firestore import (
     product_service,
@@ -154,7 +155,7 @@ Communication style: Professional, direct, helpful."""
         orders = context.get("orders") or []
         customers = context.get("customers") or []
 
-        total_revenue = sum(float(o.get("total_amount") or 0) for o in orders)
+        total_revenue = sum(float(o.get("total_amount") or 0) for o in orders if o.get("status") in REVENUE_STATUSES)
         low_stock = [p for p in products if p.get("stock", 0) <= 5]
 
         prompt = f"""Based on the following business data, produce a concise summary for the business owner.

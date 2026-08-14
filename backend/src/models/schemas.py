@@ -13,6 +13,25 @@ class OrderStatus(str, Enum):
     SHIPPED = "shipped"
     DELIVERED = "delivered"
     CANCELLED = "cancelled"
+    RETURNED = "returned"
+
+
+# Statuses whose order amount counts toward recognized revenue.
+# Pending orders are not booked as revenue until confirmed; cancelled and
+# returned orders never count.
+REVENUE_STATUSES = frozenset({
+    OrderStatus.CONFIRMED.value,
+    OrderStatus.PROCESSING.value,
+    OrderStatus.SHIPPED.value,
+    OrderStatus.DELIVERED.value,
+})
+
+# Statuses in which the order no longer holds inventory or customer spend;
+# reaching one releases the stock and spend that were booked on creation.
+ORDER_RELEASED_STATUSES = frozenset({
+    OrderStatus.CANCELLED.value,
+    OrderStatus.RETURNED.value,
+})
 
 
 class ProductStatus(str, Enum):

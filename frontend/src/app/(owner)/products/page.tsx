@@ -13,6 +13,8 @@ export default function ProductsPage() {
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ name: '', description: '', price: '', stock: '', category: '' });
+  const [restockQty, setRestockQty] = useState<Record<string, string>>({});
+  const [restocking, setRestocking] = useState<string | null>(null);
 
   useEffect(() => {
     if (!businessId) return;
@@ -49,6 +51,26 @@ export default function ProductsPage() {
       notifyDataChanged();
     } catch {
       alert('Failed to add product.');
+    }
+  };
+
+  const handleRestock = async (product: Product) => {
+    const qty = parseInt(restockQty[product.id] || '', 10);
+    if (!qty || qty <= 0) return alert('Enter a quantity greater than zero.');
+    if (restocking) return;
+    setRestocking(product.id);
+    try {
+      await api.put(`/products/${businessId}/${product.id}`, {
+        stock: product.stock + qty,
+        status: product.status === 'out_of_stock' ? 'active' : product.status,
+      });
+      setRestockQty((prev) => ({ ...prev, [product.id]: '' }));
+      loadProducts();
+      notifyDataChanged();
+    } catch {
+      alert('Failed to restock. Make sure the backend is running.');
+    } finally {
+      setRestocking(null);
     }
   };
 
@@ -136,6 +158,26 @@ export default function ProductsPage() {
               <p className='text-sm text-ink-soft leading-relaxed mt-3 mb-4 flex-1'>
                 {product.description || 'No description on file.'}
               </p>
+              <form
+                className='flex items-center gap-2 border-t border-[var(--rule)] pt-3 mb-3'
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleRestock(product);
+                }}
+              >
+                <input
+                  type='number'
+                  min='1'
+                  className='field tabular !py-2 !px-3 w-24'
+                  placeholder='qty'
+                  value={restockQty[product.id] || ''}
+                  onChange={(e) => setRestockQty((prev) => ({ ...prev, [product.id]: e.target.value }))}
+                  aria-label={`Restock quantity for ${product.name}`}
+                />
+                <button type='submit' disabled={restocking !== null} className='btn btn-ghost flex-1 !py-2 !px-3 text-[11px]'>
+                  {restocking === product.id ? 'Restocking…' : '+ Restock'}
+                </button>
+              </form>
               <footer className='flex items-baseline justify-between border-t border-[var(--rule)] pt-3 mt-auto'>
                 <Cash value={product.price} className='font-mono text-xl font-semibold' />
                 <span className='font-mono text-[10px] uppercase tracking-[0.14em] text-ink-faint'>per unit</span>

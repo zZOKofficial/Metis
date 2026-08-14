@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useBusiness } from '@/lib/BusinessContext';
 import api from '@/lib/api';
-import { useDataRefresh } from '@/lib/refresh';
+import { notifyDataChanged, useDataRefresh } from '@/lib/refresh';
 import { DashboardMetrics, AgentStatus } from '@/types';
 import SetupWizard from '@/components/SetupWizard';
 import { Docket, LoadingState, AgentDot, AGENT_LABEL, Cash } from '@/components/ui';
@@ -13,6 +13,28 @@ export default function DashboardPage() {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [agents, setAgents] = useState<AgentStatus[]>([]);
   const [loading, setLoading] = useState(true);
+  const [restockQty, setRestockQty] = useState<Record<string, string>>({});
+  const [restocking, setRestocking] = useState<string | null>(null);
+
+  const handleRestock = async (product: { id: string; name: string; stock: number; status?: string }) => {
+    const qty = parseInt(restockQty[product.id] || '', 10);
+    if (!qty || qty <= 0) return alert('Enter a quantity greater than zero.');
+    if (restocking) return;
+    setRestocking(product.id);
+    try {
+      await api.put(`/products/${businessId}/${product.id}`, {
+        stock: product.stock + qty,
+        status: product.status === 'out_of_stock' ? 'active' : product.status,
+      });
+      setRestockQty((prev) => ({ ...prev, [product.id]: '' }));
+      notifyDataChanged();
+      loadData();
+    } catch {
+      alert('Failed to restock. Make sure the backend is running.');
+    } finally {
+      setRestocking(null);
+    }
+  };
 
   const loadData = useCallback(async () => {
     if (!businessId) {
@@ -162,11 +184,36 @@ export default function DashboardPage() {
               <h2 className='kicker mb-3'>
                 Stockroom warning · operations agent is watching
               </h2>
-              <div className='flex flex-wrap gap-3'>
+              <div className='flex flex-wrap gap-3 items-center'>
                 {lowStock.map((p) => (
-                  <span key={p.id} className='ticket ticket--danger !border-dashed'>
-                    {p.name} · {p.stock} left
-                  </span>
+                  <form
+                    key={p.id}
+                    className='flex items-center gap-2 ticket ticket--danger !border-dashed !bg-card'
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleRestock(p);
+                    }}
+                  >
+                    <span className='whitespace-nowrap'>
+                      {p.name} · {p.stock} left
+                    </span>
+                    <input
+                      type='number'
+                      min='1'
+                      className='field tabular !py-1 !px-2 w-16'
+                      placeholder='qty'
+                      value={restockQty[p.id] || ''}
+                      onChange={(e) => setRestockQty((prev) => ({ ...prev, [p.id]: e.target.value }))}
+                      aria-label={`Restock quantity for ${p.name}`}
+                    />
+                    <button
+                      type='submit'
+                      disabled={restocking !== null}
+                      className='btn btn-ghost !py-1 !px-2 text-[10px]'
+                    >
+                      {restocking === p.id ? '…' : '+ Restock'}
+                    </button>
+                  </form>
                 ))}
               </div>
             </section>
