@@ -2,7 +2,7 @@
 
 > Build a company, not a science project.
 
-**Last Updated:** 2026-08-17 (METIS 0.4.3)
+**Last Updated:** 2026-08-17 (METIS 0.5.0)
 
 ---
 
@@ -20,7 +20,7 @@
 - [x] Data models: Business, Product, Customer, Order, AgentLog, Approval, ChatMessage — `backend/src/models/schemas.py` *(0.4.1: `Product` gained `product_key` — optional SKU-style identifier, unique per business)*
 - [x] Chat message persistence (`chat_messages` collection) — `backend/src/services/firestore.py` (`chat_service`)
 - [x] Pydantic schemas for validation — `backend/src/models/schemas.py`
-- [x] Environment configuration (.env) — `backend/src/core/config.py` *(0.3.0: `APP_VERSION` bumped to 0.3.0 in both config and `.env`; 0.4.1: bumped to 0.4.1, incl. the `.env` pin that overrides `config.py`; 0.4.3: bumped to 0.4.3)*
+- [x] Environment configuration (.env) — `backend/src/core/config.py` *(0.3.0: `APP_VERSION` bumped to 0.3.0 in both config and `.env`; 0.4.1: bumped to 0.4.1, incl. the `.env` pin that overrides `config.py`; 0.4.3: bumped to 0.4.3; 0.5.0: bumped to 0.5.0)*
 - [x] Health check endpoint — `backend/src/main.py` (`/health`)
 
 ## Milestone 2: Agent Framework ✅
@@ -58,6 +58,8 @@
 - [x] `/api/agents` — agent status, activity, trigger actions
 - [x] `/api/chat` — chat with Manager Agent (persists turns, returns synced history)
 - [x] `/api/chat/{business_id}/history` — retrieve stored chat history
+- [x] `/api/storefront/{business_id}/history` + `/api/storefront/{business_id}/chat` — public customer chat (session-scoped, Sales Agent, `create_order` staged for approval, customer id server-verified) *(added 2026-08-12, commit `04645a0`; documented in 0.5.0)*
+- [x] `POST /api/demo/seed` — one-click demo store (5 products, 3 customers, 3 revenue-bearing orders) *(0.5.0)*
 - [x] `/api/approvals` — list, approve, reject *(2026-08-12: failed executions now mark the approval `failed` (`ApprovalStatus.FAILED`) instead of `approved`, returning the execution error. **0.3.0:** the owner's approve/reject no longer 400s on truncated/hallucinated IDs — staged actions resolve references before executing; the chat prompt now shows full product/customer/order IDs so the model stops inventing them)*
 - [x] `/api/analytics` — dashboard metrics
 
@@ -66,7 +68,7 @@
 
 - [x] Next.js 14 with App Router — `frontend/package.json`, `frontend/next.config.js`
 - [x] Tailwind CSS configuration — `frontend/tailwind.config.js`
-- [x] Shared layout with navigation — `frontend/src/app/layout.tsx`, `frontend/src/components/Sidebar.tsx` *(0.3.0: footer now shows `v0.3.0`; 0.4.1: shows `v0.4.1`; 0.4.3: shows `v0.4.3`)*
+- [x] Shared layout with navigation — `frontend/src/app/layout.tsx`, `frontend/src/components/Sidebar.tsx` *(0.3.0: footer now shows `v0.3.0`; 0.4.1: shows `v0.4.1`; 0.4.3: shows `v0.4.3`; 0.5.0: shows `v0.5.0`)*
 - [x] API client — `frontend/src/lib/api.ts` *(configurable via `NEXT_PUBLIC_API_URL`, falls back to `http://localhost:8000/api`; 0.3.0 adds `/models`, `/ai/config`, `/ai/config/clear` for the Gemini key panel)*
 - [x] TypeScript types matching backend models — `frontend/src/types/index.ts`
 - [ ] Authentication context — **Not implemented**
@@ -80,14 +82,16 @@
 - [x] **Approval Center** — pending actions with approve/reject; *error alerts now surface the real execution error from the backend (e.g. "Product X not found") instead of a generic message (0.3.0)* — `frontend/src/app/approvals/page.tsx`
 - [x] **Activity Feed** — chronological agent activity log — `frontend/src/app/activity/page.tsx`
 - [x] **Products** — product management UI — `frontend/src/app/products/page.tsx` *(0.4.1: revamped — live search (name/category/product key), edit mode reusing the ledger form, delete with confirmation, product-key chips; split into `ProductForm.tsx` / `ProductCard.tsx`)*
-- [x] **Orders** — order management UI — `frontend/src/app/orders/page.tsx`
+- [x] **Orders** — order management UI; customer name under the `customer #XXXX` tag; "⤓ Memo" → printable receipt PDF *(0.5.0)* — `frontend/src/app/(owner)/orders/page.tsx`, `frontend/src/app/(owner)/orders/[orderId]/receipt/page.tsx`
 - [x] **Customers** — customer management UI — `frontend/src/app/customers/page.tsx`
+- [x] **Storefront Chat** — public customer-facing page (shopper check-in, catalog view, Sales Assistant chat, staging notice) — `frontend/src/app/storefront/[businessId]/page.tsx` *(added 2026-08-12, commit `04645a0`; documented in 0.5.0)*
+- [x] **Setup Wizard demo shortcut** — "Load the demo store" seeds Deadpool's Den (5 products, 3 customers, 3 orders) via `POST /api/demo/seed` *(0.5.0)*
 
-## Milestone 7: End-to-End Demo Workflow ⚠️
+## Milestone 7: End-to-End Demo Workflow ✅ (95%)
 **Goal:** Complete scenario from the prompt working flawlessly
 
 1. [x] Owner adds a summer collection — `frontend/src/app/products/page.tsx` persists via `POST /api/products/{business_id}`
-2. [ ] Customer asks about a blue shirt under ৳2000 — *customer-facing conversation interface not built*
+2. [x] Customer asks about a blue shirt under ৳2000 — **storefront chat implemented**: public `frontend/src/app/storefront/[businessId]/page.tsx` (shopper check-in, session-scoped history, catalog view) → `POST /api/storefront/{business_id}/chat` runs the Sales Agent with `STOREFRONT_TOOL_DECLARATIONS` (`search_products`, `recommend_products`, `check_inventory`, `create_order`); customer id server-verified, `create_order` staged into the Approval Center *(commit `04645a0` 2026-08-12; reconciled into docs 0.5.0)*
 3. [x] Sales Agent searches, checks inventory, recommends — agent + `POST /api/orders` flow wired
 4. [x] Customer places an order — `frontend/src/app/orders/page.tsx` + `POST /api/orders/{business_id}`
 5. [x] Operations Agent records the order — `backend/src/agents/operations.py`
@@ -99,13 +103,19 @@
 11. [x] Owner approves — `frontend/src/app/approvals/page.tsx` + approve/reject endpoints *(0.3.0: approve no longer fails on truncated/hallucinated IDs; error alerts show the real reason)*
 12. [x] System records completed action — agent logs + approval status updates
 
-> **Previous blocker RESOLVED (2026-08-12):** `SetupWizard` now calls `POST /api/business` and stores the backend-returned ID; `BusinessContext` hydrates `businessId` from `localStorage` on reload. All pages (Products, Orders, Customers, Dashboard, Agents, Activity, Approvals, Chat) are wired to the backend API with loading/error states. **Update (2026-08-12):** Chat conversations are persisted server-side (`chat_messages` collection), the Manager Agent receives the last 20 turns as multi-turn Gemini context, and the chat UI loads history on mount and renders Markdown. Remaining: customer-facing simulated conversation UI and a full single-pass verification of the 12-step scenario.
+> **Previous blocker RESOLVED (2026-08-12):** `SetupWizard` now calls `POST /api/business` and stores the backend-returned ID; `BusinessContext` hydrates `businessId` from `localStorage` on reload. All pages (Products, Orders, Customers, Dashboard, Agents, Activity, Approvals, Chat) are wired to the backend API with loading/error states. **Update (2026-08-12):** Chat conversations are persisted server-side (`chat_messages` collection), the Manager Agent receives the last 20 turns as multi-turn Gemini context, and the chat UI loads history on mount and renders Markdown. **Update (2026-08-17, 0.5.0):** the customer-facing storefront chat (step 2) is implemented (commit `04645a0`) and the full scenario is **scripted-verified 27/27** (`backend/scripts/e2e_demo.py`); remaining: a single browser click-through of the live UI.
 >
 > **0.4.1 (2026-08-17):** The Business Chat gained real catalog management. `create_product` (MEDIUM) and `delete_product` (HIGH) are staged into the Approval Center — the owner approves and the Operations Agent executes. Products now carry an optional unique `product_key` (SKU) enforced by the API (409) and the agents; product PUT/DELETE routes previously wrote/deleted blindly — they now enforce existence and ownership. Products UI overhauled with live search, edit mode, delete with confirmation and product-key chips; frontend favicon set added (auto-served by Next.js). Version bumped to 0.4.1.
 >
 > **0.4.2 (2026-08-17):** Chat gained the `set_stock` inventory-override tool. It executes immediately instead of being staged — the owner can say "mark Deadpool's Golden Glock out of stock" and the stock is zeroed on the spot (`0` → out of stock) rather than the agent reporting it can't.
 >
 > **0.4.3 (2026-08-17):** The backend now serves the favicon the browser requests: `backend/src/static/favicon.ico` + `icon.svg` (copied from the frontend assets), served via new `GET /favicon.ico` (image/x-icon) and `GET /icon.svg` (image/svg+xml) routes in `backend/src/main.py`, hidden from the `/docs` schema. Verified on a live uvicorn: `/favicon.ico` → 200, `/icon.svg` → 200, `/health` → 200, `/api/*` untouched. Version bumped to 0.4.3 everywhere.
+>
+> **0.5.0 (2026-08-17, Phase 0 baseline sync):** Docs reconciled with the codebase — the customer-facing storefront chat (Milestone 7 step 2, `04645a0`) is marked complete, storefront endpoints/pages added to Milestones 4/6, Milestone 7 → 95%, integration-gap table corrected, and the version marker bumped to 0.5.0 everywhere (`config.py`, `.env`, Sidebar/storefront footers, `package.json`/lock).
+>
+> **0.5.0 (Phase 1 — E2E verification):** `backend/scripts/e2e_demo.py` committed — **27/27 checks green** on a clean SQLite DB: CRUD, `product_key` 409, cross-business 404, server-side totals, inventory decrement, revenue booking, analytics, approval 404 guard, plus live Gemini flows (owner chat stages `create_product` → approved → catalog updated; storefront chat stages `create_order` → approved → stock 8→6). Added `METIS_DB_PATH` env override for isolated test DBs.
+>
+> **0.5.0 (Phase 1B — demo experience, first batch):** `POST /api/demo/seed` + Setup Wizard "Load the demo store" button (5 products, 3 customers, 3 revenue orders). Orders page shows the customer name under the `customer #XXXX` tag. New **order memo PDF** — `/orders/{orderId}/receipt` renders the order as a printable docket (business, customer, items, totals, policies) via a new `@media print` block; "⤓ Memo" on every order card; zero new dependencies. Remaining 1B: mock AI mode, streaming chat, photo→product, voice briefing.
 
 > **0.3.0 (2026-08-12):** The chat prompt now shows full product/customer/order IDs (they were truncated to 8 chars, which led Gemini to stage approvals with invalid references); `create_order`/`create_campaign` resolve references by ID, prefix, or name (case-insensitive, fuzzy fallback for e.g. `prod_batmobile` → `Bat-Mobile`). Approval Center alerts surface the backend's actual execution error. Local persistence switched from in-memory to SQLite (`backend/data/metis.db`).
 
@@ -131,7 +141,7 @@
 - [ ] API integration tests
 - [ ] Error handling tests
 
-> **PARTIAL (0.4.1):** `backend/tests/` still holds no committed tests, but ad-hoc FastAPI `TestClient` suites (run locally, not committed) exercised product CRUD (incl. the `product_key` 409 path), the staged `create_product`/`delete_product` approval flow, and `set_stock` inventory overrides — including the `KeyError` it crashed on before the fix. Writing these as permanent tests under `backend/tests/` is the next step for this milestone.
+> **PARTIAL (0.5.0):** `backend/tests/` still holds no committed tests, but `backend/scripts/e2e_demo.py` is now committed — 27 checks green on a clean SQLite DB (incl. the `product_key` 409 path, ownership 404s, staged `create_product`/`create_order` approval flows and `set_stock` behavior through the live API with real Gemini). Writing permanent pytest unit/integration suites under `backend/tests/` (Phase 2 of the roadmap) is the next step for this milestone.
 
 ## Milestone 10: Deployment ⚠️
 **Goal:** Live on Google Cloud

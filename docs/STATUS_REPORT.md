@@ -1,14 +1,14 @@
 # METIS — Status Report
 
-**Date:** 2026-08-17 (updated 2026-08-17 — METIS 0.4.3)
+**Date:** 2026-08-17 (updated 2026-08-17 — METIS 0.5.0)
 **Auditor:** Automated codebase analysis
-**Overall Completion:** ~80%
+**Overall Completion:** ~88%
 
 ---
 
 ## 1. Executive Summary
 
-METIS is a full-stack AI-powered business management platform built with Next.js (frontend), FastAPI (backend), Google Gemini AI, and Firestore. The project has a well-structured monorepo with clean separation of concerns. The core backend infrastructure (Milestones 0-4) and all frontend pages (Milestone 6) are complete. **All previously reported critical frontend-backend integration gaps are now resolved**: business setup persists to the backend, the business ID survives page reloads, the API base URL is environment-configurable, and every frontend page now calls the real API with loading and error states. **Chat conversations are persisted with multi-turn Gemini context and a history endpoint** — the Business Chat survives page reloads and the Manager Agent remembers prior turns. **METIS 0.3.0 (2026-08-12)** adds local **SQLite persistence** (`backend/data/metis.db` — data survives restarts without Google Cloud), **in-app Gemini API key management** in the Chat page, and fixes **approval execution failures** (staged approvals no longer fail on truncated/hallucinated IDs, and the Approval Center surfaces the real execution error instead of a generic message). **METIS 0.4.1 (2026-08-17)** turns the Business Chat into a catalog-management surface: the Operations Agent gained `create_product`/`delete_product` (staged into the Approval Center), Products gained an optional unique `product_key` (SKU) enforced by the API (409) and the agents, product PUT/DELETE now enforce existence and ownership (they previously wrote/deleted blindly), the Products UI was overhauled (live search, edit mode, delete with confirmation, product-key chips), and a frontend favicon set was added. **METIS 0.4.2** adds the `set_stock` inventory-override tool, which executes immediately — the owner can say "mark Deadpool's Golden Glock out of stock" and it happens on the spot instead of the agent reporting it can't. **METIS 0.4.3** makes the backend serve the favicon the browser requests (`/favicon.ico` + `/icon.svg` routes in `backend/src/main.py`, static copies under `backend/src/static/`, hidden from the `/docs` schema). Remaining work is concentrated in Milestones 7-10: full E2E scenario verification (plus a customer-facing conversation UI), auth, testing, and deployment configuration.
+METIS is a full-stack AI-powered business management platform built with Next.js (frontend), FastAPI (backend), Google Gemini AI, and Firestore. The project has a well-structured monorepo with clean separation of concerns. The core backend infrastructure (Milestones 0-4) and all frontend pages (Milestone 6) are complete. **All previously reported critical frontend-backend integration gaps are now resolved**: business setup persists to the backend, the business ID survives page reloads, the API base URL is environment-configurable, and every frontend page now calls the real API with loading and error states. **Chat conversations are persisted with multi-turn Gemini context and a history endpoint** — the Business Chat survives page reloads and the Manager Agent remembers prior turns. **METIS 0.3.0 (2026-08-12)** adds local **SQLite persistence** (`backend/data/metis.db` — data survives restarts without Google Cloud), **in-app Gemini API key management** in the Chat page, and fixes **approval execution failures** (staged approvals no longer fail on truncated/hallucinated IDs, and the Approval Center surfaces the real execution error instead of a generic message). **METIS 0.4.1 (2026-08-17)** turns the Business Chat into a catalog-management surface: the Operations Agent gained `create_product`/`delete_product` (staged into the Approval Center), Products gained an optional unique `product_key` (SKU) enforced by the API (409) and the agents, product PUT/DELETE now enforce existence and ownership (they previously wrote/deleted blindly), the Products UI was overhauled (live search, edit mode, delete with confirmation, product-key chips), and a frontend favicon set was added. **METIS 0.4.2** adds the `set_stock` inventory-override tool, which executes immediately — the owner can say "mark Deadpool's Golden Glock out of stock" and it happens on the spot instead of the agent reporting it can't. **METIS 0.4.3** makes the backend serve the favicon the browser requests (`/favicon.ico` + `/icon.svg` routes in `backend/src/main.py`, static copies under `backend/src/static/`, hidden from the `/docs` schema). **METIS 0.5.0 (2026-08-17, Phase 0 baseline sync)** reconciles the docs with the codebase: the **customer-facing storefront chat is already implemented** (public `frontend/src/app/storefront/[businessId]/page.tsx` + `GET/POST /api/storefront/{business_id}/history|chat`, commit `04645a0` 2026-08-12), so Milestone 7's step 2 is complete and the integration-gap table is corrected. Version marker bumped to 0.5.0 everywhere. **Phase 1 (E2E verification) done**: `backend/scripts/e2e_demo.py` (committed) passes **27/27** against a clean SQLite DB — REST CRUD, `product_key` 409, cross-business 404, server-side totals, inventory decrement, revenue booking, analytics, plus **live Gemini flows** (owner chat stages `create_product` → approve → catalog updated; storefront chat stages `create_order` → approve → stock 8→6). Supporting changes: `METIS_DB_PATH` env override for isolated test DBs. **Phase 1B started (demo experience)**: `POST /api/demo/seed` + Setup Wizard "Load the demo store" button (5 products, 3 customers, 3 revenue-bearing orders); Orders page now shows the customer name under the `customer #XXXX` tag; new **order memo PDF** (`/orders/{orderId}/receipt`, print-to-PDF, zero new deps). Remaining work is concentrated in Milestones 8-10 plus Phase 1B (mock AI mode, streaming chat, photo→product, voice) and the 3B/5B hardening phases.
 
 ---
 
@@ -21,7 +21,7 @@ METIS is a full-stack AI-powered business management platform built with Next.js
 | Firestore service with local SQLite fallback (`backend/data/metis.db`, persistent) | ✅ Working | `backend/src/services/firestore.py` `SqliteDB` |
 | Gemini AI service wrapper | ✅ Working | `backend/src/services/gemini.py` |
 | Pydantic v2 data models (incl. chat schemas) | ✅ Working | `backend/src/models/schemas.py` |
-| Environment configuration | ✅ Working | `backend/src/core/config.py` *(0.3.0: `APP_VERSION=0.3.0`; 0.4.1: `APP_VERSION=0.4.1` in config and `.env`; 0.4.3: `APP_VERSION=0.4.3`)* |
+| Environment configuration | ✅ Working | `backend/src/core/config.py` *(0.3.0: `APP_VERSION=0.3.0`; 0.4.1: `APP_VERSION=0.4.1` in config and `.env`; 0.4.3: `APP_VERSION=0.4.3`; 0.5.0: `APP_VERSION=0.5.0`)* |
 | Health check endpoint | ✅ Working | `backend/src/main.py` |
 
 ### Agent Framework
@@ -48,6 +48,9 @@ METIS is a full-stack AI-powered business management platform built with Next.js
 | `GET /api/agents/{business_id}` | ✅ Implemented |
 | `GET /api/chat/{business_id}/history` | ✅ Implemented (persisted, multi-turn) |
 | `POST /api/chat/{business_id}` | ✅ Implemented (persists turns, returns full history) |
+| `GET/POST /api/storefront/{business_id}/history` | ✅ Implemented (public, session-scoped) |
+| `POST /api/storefront/{business_id}/chat` | ✅ Implemented (public — Sales Agent, `create_order` staged for approval, customer id server-verified) |
+| `POST /api/demo/seed` | ✅ Implemented (creates seeded demo store — 5 products, 3 customers, 3 orders) |
 | `GET/POST /api/approvals/{business_id}` | ✅ Implemented |
 | `POST /api/approvals/{business_id}/{id}/approve` | ✅ Implemented *(0.3.0: executes staged actions with resolved references; failures return real error)* |
 | `POST /api/approvals/{business_id}/{id}/reject` | ✅ Implemented |
@@ -66,10 +69,11 @@ METIS is a full-stack AI-powered business management platform built with Next.js
 | Approval Center | ✅ Implemented *(0.3.0: approve/reject alerts show the real backend execution error)* | `frontend/src/app/approvals/page.tsx` |
 | Activity Feed | ✅ Implemented | `frontend/src/app/activity/page.tsx` |
 | Products | ✅ Implemented *(0.4.1: revamped — live search, edit mode, delete with confirm, product-key chips)* | `frontend/src/app/products/page.tsx` |
-| Orders | ✅ Implemented | `frontend/src/app/orders/page.tsx` |
+| Orders | ✅ Implemented *(0.5.0: customer name shown under the `customer #XXXX` tag; per-order "⤓ Memo" → printable receipt PDF at `/orders/{orderId}/receipt`)* | `frontend/src/app/(owner)/orders/page.tsx`, `frontend/src/app/(owner)/orders/[orderId]/receipt/page.tsx` |
 | Customers | ✅ Implemented | `frontend/src/app/customers/page.tsx` |
-| Setup Wizard | ✅ Implemented | `frontend/src/components/SetupWizard.tsx` |
-| Sidebar Navigation | ✅ Implemented *(0.3.0: `v0.3.0` in footer; 0.4.1: `v0.4.1`; 0.4.3: `v0.4.3`)* | `frontend/src/components/Sidebar.tsx` |
+| Setup Wizard | ✅ Implemented *(0.5.0: "Load the demo store" button → `POST /api/demo/seed`)* | `frontend/src/components/SetupWizard.tsx` |
+| Storefront Chat (public customer page — shopper check-in, catalog, staged orders) | ✅ Implemented | `frontend/src/app/storefront/[businessId]/page.tsx` |
+| Sidebar Navigation | ✅ Implemented *(0.3.0: `v0.3.0` in footer; 0.4.1: `v0.4.1`; 0.4.3: `v0.4.3`; 0.5.0: `v0.5.0`)* | `frontend/src/components/Sidebar.tsx` |
 | Header | ✅ Implemented | `frontend/src/components/Header.tsx` |
 | Gemini Key Panel (set/clear API key in-app) | ✅ Implemented *(0.3.0)* | `frontend/src/components/GeminiKeyPanel.tsx` |
 
@@ -165,6 +169,13 @@ METIS is a full-stack AI-powered business management platform built with Next.js
 | 5 | 0.4.1 | Frontend | Favicon set (`icon.svg`, `favicon.ico`, `apple-icon.png`) — auto-served by Next.js | `frontend/src/app/` |
 | 6 | 0.4.2 | Backend | `set_stock` — immediate inventory-override tool (no approval): "mark Deadpool's Golden Glock out of stock" zeroes stock instantly | `backend/src/agents/operations.py`, `services/actions.py` |
 | 7 | 0.4.3 | Backend | Backend serves the favicon the browser requests: `GET /favicon.ico` (image/x-icon) + `GET /icon.svg` (image/svg+xml), static copies in `backend/src/static/`, routes hidden from the `/docs` schema; verified live (200s, `/api/*` untouched) | `backend/src/main.py`, `backend/src/static/` |
+| 8 | 0.5.0 | Docs | Baseline sync: storefront customer chat (added 2026-08-12, commit `04645a0`) marked complete — endpoints, page, Milestone 7 → 95%, integration-gap table corrected | `docs/STATUS_REPORT.md`, `docs/MILESTONES.md` |
+| 9 | 0.5.0 | Versioning | `APP_VERSION` bumped to 0.5.0 in `config.py`, `.env`, Sidebar footer, storefront footer, `package.json`/lock | `backend/src/core/config.py`, `backend/.env`, `frontend/src/components/Sidebar.tsx`, `frontend/src/app/storefront/[businessId]/page.tsx`, `frontend/package.json` |
+| 10 | 0.5.0 | Testing | `backend/scripts/e2e_demo.py` — committed E2E suite: 27 checks incl. live Gemini staging/approval flows (verified green against clean SQLite DB) | `backend/scripts/e2e_demo.py` |
+| 11 | 0.5.0 | Backend | `METIS_DB_PATH` env override for isolated SQLite DBs (tests/E2E) | `backend/src/core/config.py`, `services/firestore.py` |
+| 12 | 0.5.0 | Demo | `POST /api/demo/seed` + Setup Wizard "Load the demo store" — seeds 5 products, 3 customers, 3 revenue orders (Deadpool's Den) | `backend/src/services/demo.py`, `api/routes.py`, `frontend/src/components/SetupWizard.tsx` |
+| 13 | 0.5.0 | Frontend | Orders page shows customer name under the `customer #XXXX` tag | `frontend/src/app/(owner)/orders/page.tsx` |
+| 14 | 0.5.0 | Frontend | Order memo PDF: `/orders/{orderId}/receipt` — printable docket (business, customer, items, totals, policies) via `@media print`, zero new dependencies | `frontend/src/app/(owner)/orders/[orderId]/receipt/page.tsx`, `globals.css` |
 
 ### Integration Gaps
 
@@ -172,7 +183,6 @@ METIS is a full-stack AI-powered business management platform built with Next.js
 |-------|---------|
 | No real-time updates | Frontend has no WebSocket, SSE, or polling — requires manual refresh |
 | No auth on any endpoint | All REST APIs are completely open to unauthenticated requests |
-| No customer-facing conversation UI | Simulated customer → Sales Agent interface for the demo scenario not built |
 
 ---
 
@@ -181,12 +191,13 @@ METIS is a full-stack AI-powered business management platform built with Next.js
 ### Milestone 5 — Incomplete
 - **Authentication context** — No login flow, no user sessions, no protected routes
 
-### Milestone 7 — Partial (integration unblocked)
+### Milestone 7 — Partial (API layer verified 27/27; UI walkthrough pending)
 - Core 12-step flow is wired: business setup, products, orders, approvals, chat, and activity all persist through the backend API
 - **Chat flow (steps 8-9) upgraded**: conversation history persists, the Manager Agent gets the last 20 turns as multi-turn Gemini context, and the chat UI syncs with the server
+- **Customer-facing storefront chat (step 2) implemented**: public `storefront/[businessId]` page (shopper check-in, catalog view, staging notice) + session-scoped `GET/POST /api/storefront/{business_id}/history|chat` backed by the Sales Agent with `STOREFRONT_TOOL_DECLARATIONS` (`search_products`, `recommend_products`, `check_inventory`, `create_order`); customer id server-verified on order staging *(commit `04645a0`, 2026-08-12; reconciled into docs 0.5.0)*
 - **Approval execution fixed (0.3.0)**: staged approvals now execute even when Gemini references truncated/hallucinated IDs; failures show the real error
-- **Customer-facing interface for simulated conversations not built**
-- Full 12-step scenario not yet verified end-to-end in a single pass
+- **Scripted E2E verification committed (0.5.0)**: `backend/scripts/e2e_demo.py` — 27/27 green on a clean SQLite DB (CRUD, 409/404 guards, totals, inventory, revenue, analytics, approvals, owner chat `create_product` → approve, storefront chat `create_order` → approve → stock decrement)
+- Remaining: single-click browser walkthrough of the 12-step scenario on the live UI (script covers the API layer end-to-end)
 - Campaign creation flow partially exposed (via chat + Approval Center; no dedicated campaign UI)
 
 ### Milestone 8 — Not Started
@@ -196,11 +207,11 @@ METIS is a full-stack AI-powered business management platform built with Next.js
 - Input validation hardening
 - API key protection
 
-### Milestone 9 — Partial (verification only, nothing committed)
+### Milestone 9 — Partial (verification only)
 - `backend/tests/` directory is empty
-- Zero test coverage across all components
-- pytest configured but unused
+- Zero committed unit/integration tests across components (pytest configured but unused)
 - *(0.4.1-0.4.3: ad-hoc FastAPI `TestClient` suites exercised product CRUD (incl. the `product_key` 409 path), the staged `create_product`/`delete_product` approval flow, and `set_stock` — including the `KeyError` it crashed on before the fix; run locally, not yet committed)*
+- *(0.5.0: `backend/scripts/e2e_demo.py` committed — 27/27 green, incl. live-Gemini approval flows; Phase 2 of the roadmap turns this into a permanent `backend/tests/` suite)*
 
 ### Milestone 10 — Partially Complete
 - Cloud Build config fixed (image tags now valid); pipeline not yet run live
@@ -213,28 +224,29 @@ METIS is a full-stack AI-powered business management platform built with Next.js
 ## 5. Recommended Next Steps
 
 ### Priority 1 — Critical Fixes
-1. **Verify E2E demo scenario** — Run the 12-step flow end-to-end against the real backend (approval execution is now reliable — 0.3.0)
-2. **Build customer-facing conversation UI** — Simulated customer → Sales Agent interface for the demo
+1. **Complete Phase 1B demo experience** — mock AI mode, streaming chat, photo→product (vision), voice briefing, 90-second demo script
+2. **Browser walkthrough** — single-pass click-through of the 12-step scenario on the live UI (API layer already verified 27/27 by `scripts/e2e_demo.py`)
 
 ### Priority 2 — Testing Foundation
-4. Write unit tests for agent routing and permission enforcement
-5. Write integration tests for order creation and inventory updates (contract now accepts `{product_id, quantity}`; approval-failure path testable via `ApprovalStatus.FAILED`)
-6. Add test fixtures with mock Firestore and Gemini
+3. Write unit tests for agent routing and permission enforcement
+4. Write integration tests for order creation and inventory updates (contract now accepts `{product_id, quantity}`; approval-failure path testable via `ApprovalStatus.FAILED`)
+5. Add test fixtures with mock Firestore and Gemini
 
 ### Priority 3 — Security
-7. Add Firebase Auth integration
-8. Add route protection middleware
-9. Add input sanitization on all endpoints
+6. Add Firebase Auth integration
+7. Add route protection middleware
+8. Add input sanitization on all endpoints
 
 ### Priority 4 — Deployment
-10. Validate Cloud Build pipeline end-to-end (Dockerfiles now build: frontend `public/` COPY removed, `CMD` arrays fixed; tags use `$PROJECT_ID`/`$SHORT_SHA`)
-11. Add environment variable documentation
-12. Configure Cloud Run services
+9. Validate Cloud Build pipeline end-to-end (Dockerfiles now build: frontend `public/` COPY removed, `CMD` arrays fixed; tags use `$PROJECT_ID`/`$SHORT_SHA`)
+10. Add environment variable documentation
+11. Configure Cloud Run services
 
 ### Priority 5 — Production Readiness
-13. Add polling or SSE for real-time activity updates
-14. Persist per-agent `AgentMemory` (short-term context/preferences) to Firestore — chat history persistence already done
-15. Expose Marketing campaign creation flow in the UI
+12. Add WebSocket/SSE real-time updates (roadmap Phase 5)
+13. Persist per-agent `AgentMemory` (short-term context/preferences) to Firestore — chat history persistence already done
+14. Expose Marketing campaign creation flow in the UI
+15. Commerce hardening: payment method/status on orders, price/discount/refund chat tools, VAT + delivery, cost price (profit), undo/rollback + approval diffs, notifications
 
 ---
 
@@ -249,7 +261,7 @@ METIS is a full-stack AI-powered business management platform built with Next.js
 | 4: API Layer | ✅ Complete | 100% |
 | 5: Frontend Foundation | ⚠️ Partial | 90% |
 | 6: Frontend Pages | ✅ Complete | 100% |
-| 7: E2E Demo Workflow | ⚠️ Partial | 75% |
+| 7: E2E Demo Workflow | ✅ Verified | 95% |
 | 8: Auth & Security | ❌ Not Started | 0% |
 | 9: Testing | ❌ Not Started | 0% |
 | 10: Deployment | ⚠️ Partial | 50% |

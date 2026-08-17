@@ -52,6 +52,19 @@ def update_business(business_id: str, data: dict):
     return {'message': 'Business updated.'}
 
 
+# === Demo ===
+
+@router.post('/demo/seed')
+def seed_demo():
+    from ..services.demo import seed_demo_business
+    business = seed_demo_business()
+    return {
+        'business_id': business['id'],
+        'business': business,
+        'message': 'Demo store created — five products, three customers, three orders.',
+    }
+
+
 # === Products ===
 
 def _product_key_taken(business_id: str, product_key: str, exclude_id: str = '') -> bool:

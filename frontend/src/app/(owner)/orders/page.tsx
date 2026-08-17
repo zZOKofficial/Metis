@@ -20,14 +20,21 @@ const STATUS_TONE: Record<string, string> = {
 export default function OrdersPage() {
   const { businessId } = useBusiness();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [customerNames, setCustomerNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   const loadOrders = useCallback(async () => {
     if (!businessId) return;
     setLoading(true);
     try {
-      const res = await api.get(`/orders/${businessId}`);
-      setOrders(res.data);
+      const [ordersRes, customersRes] = await Promise.all([
+        api.get(`/orders/${businessId}`),
+        api.get(`/customers/${businessId}`),
+      ]);
+      setOrders(ordersRes.data);
+      setCustomerNames(
+        Object.fromEntries(customersRes.data.map((c: { id: string; name: string }) => [c.id, c.name]))
+      );
     } catch {
       console.error('Failed to load orders.');
     } finally {
@@ -85,7 +92,16 @@ export default function OrdersPage() {
                     {(order.items?.length || 0) === 1 ? '' : 's'}
                   </p>
                 </div>
-                <span className='font-mono text-xs text-ink-faint'>customer #{order.customer_id?.slice(0, 8).toUpperCase() || '—'}</span>
+                <div className='text-right'>
+                  <span className='font-mono text-xs text-ink-faint'>
+                    customer #{order.customer_id?.slice(0, 8).toUpperCase() || '—'}
+                  </span>
+                  {customerNames[order.customer_id] && (
+                    <p className='font-mono text-[11px] uppercase tracking-[0.14em] text-ink-soft mt-0.5'>
+                      {customerNames[order.customer_id]}
+                    </p>
+                  )}
+                </div>
               </header>
 
               <table className='w-full mt-5 border-collapse text-sm'>
@@ -126,6 +142,14 @@ export default function OrdersPage() {
               </table>
 
               <footer className='dashed-print mt-5 pt-4 flex items-baseline justify-end gap-3'>
+                <a
+                  href={`/orders/${order.id}/receipt`}
+                  target='_blank'
+                  rel='noopener noreferrer'
+                  className='btn btn-ghost mr-auto text-[12px]'
+                >
+                  ⤓ Memo
+                </a>
                 <span className='kicker'>Total payable</span>
                 <Cash value={order.total_amount} className='font-mono text-2xl font-semibold' />
               </footer>

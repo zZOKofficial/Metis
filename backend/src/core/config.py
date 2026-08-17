@@ -18,12 +18,15 @@ class Settings(BaseSettings):
 
     # Application
     APP_NAME: str = 'METIS'
-    APP_VERSION: str = '0.4.3'
+    APP_VERSION: str = '0.5.0'
     DEBUG: bool = True
     CORS_ORIGINS: list[str] = ['http://localhost:3000', 'http://localhost:8000']
 
     # Firestore
     FIRESTORE_DATABASE: str = '(default)'
+
+    # Local storage
+    METIS_DB_PATH: str = ''  # override the SQLite path (tests / E2E use a clean copy)
 
 
 settings = Settings()

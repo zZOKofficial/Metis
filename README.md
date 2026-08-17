@@ -92,7 +92,7 @@ METIS combines the affordability of software with the accountability of an emplo
 - **Frontend:** Next.js 14 (App Router), TypeScript, Tailwind CSS
 - **Backend:** Python, FastAPI — modular monolith, one deployable service
 - **AI:** Google Gemini (raw REST `generateContent` with a function-calling loop)
-- **Database:** Cloud Firestore (with an in-memory fallback for local development without credentials)
+- **Database:** Cloud Firestore, with a local **SQLite fallback** (`backend/data/metis.db`) — data survives restarts without any cloud setup
 - **Deployment:** Docker + Cloud Build + Cloud Run
 
 ```
@@ -102,17 +102,23 @@ backend/src/
 ├── models/schemas.py    # Pydantic v2 data models & enums
 ├── api/routes.py        # REST API layer
 ├── services/
-│   ├── firestore.py     # Data access (Firestore + in-memory fallback)
+│   ├── firestore.py     # Data access (Firestore + local SQLite fallback)
 │   ├── gemini.py        # Gemini client & tool-calling loop
-│   └── actions.py       # Tool layer: read-only / direct / staged actions
+│   ├── actions.py       # Tool layer: read-only / direct / staged actions
+│   └── demo.py          # One-click demo store seeding
 └── agents/
     ├── base.py          # BaseAgent, permissions, memory, logging
     ├── registry.py      # Agent factory
     └── manager/sales/support/marketing/operations/analytics.py
 
+backend/scripts/
+└── e2e_demo.py          # 27-step end-to-end verification script (no AI / live Gemini)
+
 frontend/src/
-├── app/                 # Next.js pages (Dashboard, Chat, Approvals, ...)
-├── components/          # AppShell, Sidebar, Header, SetupWizard, Markdown
+├── app/                 # Next.js pages (Dashboard, Chat, Approvals, Orders, ...)
+│   ├── (owner)/         # Owner console (protected shell, sidebar + header)
+│   └── storefront/      # Public customer storefront chat
+├── components/          # AppShell, Sidebar, Header, SetupWizard, Markdown, ui
 ├── lib/                 # API client, business context, refresh events
 └── types/               # TypeScript models
 ```
@@ -128,6 +134,8 @@ frontend/src/
 - (Optional, for real persistence & AI) Google Cloud account with **Firestore** and a **Gemini API key**
 
 > **No Google Cloud account?** The backend runs fully on a local SQLite database (`backend/data/metis.db`) so all data survives restarts, and the chat endpoint works if you supply a `GEMINI_API_KEY` (or save one from the Chat page). Without a key, the chat returns a "not configured" message — everything else works.
+
+> **Want a 30-second demo?** The Setup Wizard has a **"Load the demo store"** button that seeds a fully-stocked comic store (5 products, 3 customers, 3 orders with revenue) so the dashboard, storefront, and chat all have live data immediately.
 
 ### 1. Backend
 
@@ -146,6 +154,13 @@ uvicorn src.main:app --reload --port 8000
 
 The API is now at `http://localhost:8000` (interactive docs at `/docs`, health check at `/health`).
 
+**Verify end-to-end (optional):**
+
+```bash
+cd backend
+venv\Scripts\python.exe scripts/e2e_demo.py        # 27 checks: CRUD, approvals, analytics, live Gemini chat
+```
+
 ### 2. Frontend
 
 ```bash
@@ -154,7 +169,7 @@ npm install
 npm run dev
 ```
 
-Open **http://localhost:3000**. The Setup Wizard creates your business, and from there the full workflow is available: add products and customers, watch the agents work in the Activity Feed, chat with the Manager Agent, and handle approvals in the Approval Center.
+Open **http://localhost:3000**. The Setup Wizard creates your business (or seeds the demo store), and from there the full workflow is available: add products and customers, watch the agents work in the Activity Feed, chat with the Manager Agent, handle approvals in the Approval Center, and export any order as a printable memo PDF (⤓ Memo on each order card). Customers can chat with the Sales Agent on the public storefront (`/storefront/{businessId}`).
 
 The frontend talks to the backend via `NEXT_PUBLIC_API_URL` (defaults to `http://localhost:8000/api`).
 
@@ -167,6 +182,7 @@ The frontend talks to the backend via `NEXT_PUBLIC_API_URL` (defaults to `http:/
 | `GEMINI_API_KEY` | Gemini API key for the AI agents |
 | `CORS_ORIGINS` | Comma-separated list of allowed frontend origins |
 | `DEBUG` | Enable debug behavior |
+| `METIS_DB_PATH` | Override the SQLite database path (used by tests/E2E) |
 
 ---
 
@@ -192,6 +208,9 @@ The frontend talks to the backend via `NEXT_PUBLIC_API_URL` (defaults to `http:/
 | GET | `/api/agents/{business_id}/activity` | Agent activity log |
 | POST | `/api/chat/{business_id}` | Chat with Manager Agent |
 | GET | `/api/chat/{business_id}/history` | Chat history |
+| POST | `/api/storefront/{business_id}/chat` | Public customer chat (Sales Agent) |
+| GET | `/api/storefront/{business_id}/history` | Customer chat history (per session) |
+| POST | `/api/demo/seed` | Create a seeded demo store (products, customers, orders) |
 | GET | `/api/approvals/{business_id}` | List approvals |
 | POST | `/api/approvals/{business_id}/{approval_id}/approve` | Approve action |
 | POST | `/api/approvals/{business_id}/{approval_id}/reject` | Reject action |
@@ -200,6 +219,8 @@ The frontend talks to the backend via `NEXT_PUBLIC_API_URL` (defaults to `http:/
 | GET | `/api/analytics/{business_id}/top-products` | Top products |
 | GET | `/api/analytics/{business_id}/low-stock` | Low stock products |
 | GET | `/api/models` | Available AI models |
+| POST | `/api/ai/config` | Save Gemini API key in-app |
+| POST | `/api/ai/config/clear` | Clear saved API key |
 
 ---
 
@@ -218,9 +239,10 @@ The pipeline builds both images, pushes them to Container Registry, and deploys 
 
 ## Roadmap
 
-- **Done (Milestones 0-6):** core backend, agent framework, all 6 agents, REST API, all frontend pages
-- **Partial (Milestones 7, 10):** E2E demo workflow, deployment config
-- **Not started:** authentication & security, automated tests
+- **Complete (Milestones 0-4, 6):** core backend, agent framework, all 6 agents, REST API, all frontend pages
+- **Complete (Milestone 7, ~95%):** E2E demo workflow — business setup → catalog → storefront customer chat → orders → approvals → analytics, **scripted verification passing 27/27** (`backend/scripts/e2e_demo.py`)
+- **In progress:** demo experience polish (seeding done; mock AI mode, streaming chat, photo→product, voice briefing planned), automated tests, Firebase Auth, commerce hardening, deployment, real-time updates
+- **Not started:** authentication & security (Milestone 8), automated tests (Milestone 9, committed)
 
 See [`docs/MILESTONES.md`](docs/MILESTONES.md) for the detailed milestone breakdown and [`docs/STATUS_REPORT.md`](docs/STATUS_REPORT.md) for the latest status.
 

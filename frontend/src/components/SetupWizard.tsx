@@ -21,6 +21,22 @@ export default function SetupWizard() {
 
   const canContinue = step === 0 ? form.name.trim().length > 0 : true;
 
+  const handleDemo = async () => {
+    setLoading(true);
+    try {
+      const res = await api.post('/demo/seed');
+      const business = res.data.business;
+      business.id = res.data.business_id;
+      setCurrentBusiness(business);
+      setBusinessId(business.id);
+      localStorage.setItem('metis_business', JSON.stringify(business));
+    } catch {
+      alert('Failed to load the demo store. Make sure the backend is running.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!form.name) {
       alert('Please enter a business name.');
@@ -69,6 +85,14 @@ export default function SetupWizard() {
           Register your business once. METIS then deploys six specialists — manager, sales, support,
           marketing, operations, analytics — and puts them on the payroll.
         </p>
+
+        <button
+          onClick={handleDemo}
+          disabled={loading}
+          className='btn btn-ghost w-full mt-5'
+        >
+          {loading ? 'Seeding the shelves…' : '⚡ Skip the paperwork — load the demo store'}
+        </button>
 
         <ol className='flex items-center gap-2 mt-8 mb-8' aria-label='Progress'>
           {STEPS.map((label, i) => (

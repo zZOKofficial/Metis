@@ -44,6 +44,8 @@ def _load(raw: str) -> dict:
 
 
 def _default_db_path() -> str:
+    if settings.METIS_DB_PATH:
+        return settings.METIS_DB_PATH
     backend_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     return os.path.join(backend_root, 'data', 'metis.db')
 

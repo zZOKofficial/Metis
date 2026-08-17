@@ -375,3 +375,41 @@
     transform: translate(1px, 1px);
   }
 }
+
+/* Print: only the memo shows, plain paper, nothing but ink */
+@media print {
+  @page {
+    margin: 14mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  aside,
+  header {
+    display: none !important;
+  }
+
+  .lg\:flex,
+  .lg\:h-screen,
+  main {
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  .desk {
+    background: #fff !important;
+    background-image: none !important;
+  }
+
+  tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+}
