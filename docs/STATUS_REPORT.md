@@ -1,6 +1,6 @@
 # METIS — Status Report
 
-**Date:** 2026-08-17 (updated 2026-08-17 — METIS 0.4.1)
+**Date:** 2026-08-17 (updated 2026-08-17 — METIS 0.4.3)
 **Auditor:** Automated codebase analysis
 **Overall Completion:** ~80%
 
@@ -8,7 +8,7 @@
 
 ## 1. Executive Summary
 
-METIS is a full-stack AI-powered business management platform built with Next.js (frontend), FastAPI (backend), Google Gemini AI, and Firestore. The project has a well-structured monorepo with clean separation of concerns. The core backend infrastructure (Milestones 0-4) and all frontend pages (Milestone 6) are complete. **All previously reported critical frontend-backend integration gaps are now resolved**: business setup persists to the backend, the business ID survives page reloads, the API base URL is environment-configurable, and every frontend page now calls the real API with loading and error states. **Chat conversations are persisted with multi-turn Gemini context and a history endpoint** — the Business Chat survives page reloads and the Manager Agent remembers prior turns. **METIS 0.3.0 (2026-08-12)** adds local **SQLite persistence** (`backend/data/metis.db` — data survives restarts without Google Cloud), **in-app Gemini API key management** in the Chat page, and fixes **approval execution failures** (staged approvals no longer fail on truncated/hallucinated IDs, and the Approval Center surfaces the real execution error instead of a generic message). Remaining work is concentrated in Milestones 7-10: full E2E scenario verification (plus a customer-facing conversation UI), auth, testing, and deployment configuration.
+METIS is a full-stack AI-powered business management platform built with Next.js (frontend), FastAPI (backend), Google Gemini AI, and Firestore. The project has a well-structured monorepo with clean separation of concerns. The core backend infrastructure (Milestones 0-4) and all frontend pages (Milestone 6) are complete. **All previously reported critical frontend-backend integration gaps are now resolved**: business setup persists to the backend, the business ID survives page reloads, the API base URL is environment-configurable, and every frontend page now calls the real API with loading and error states. **Chat conversations are persisted with multi-turn Gemini context and a history endpoint** — the Business Chat survives page reloads and the Manager Agent remembers prior turns. **METIS 0.3.0 (2026-08-12)** adds local **SQLite persistence** (`backend/data/metis.db` — data survives restarts without Google Cloud), **in-app Gemini API key management** in the Chat page, and fixes **approval execution failures** (staged approvals no longer fail on truncated/hallucinated IDs, and the Approval Center surfaces the real execution error instead of a generic message). **METIS 0.4.1 (2026-08-17)** turns the Business Chat into a catalog-management surface: the Operations Agent gained `create_product`/`delete_product` (staged into the Approval Center), Products gained an optional unique `product_key` (SKU) enforced by the API (409) and the agents, product PUT/DELETE now enforce existence and ownership (they previously wrote/deleted blindly), the Products UI was overhauled (live search, edit mode, delete with confirmation, product-key chips), and a frontend favicon set was added. **METIS 0.4.2** adds the `set_stock` inventory-override tool, which executes immediately — the owner can say "mark Deadpool's Golden Glock out of stock" and it happens on the spot instead of the agent reporting it can't. **METIS 0.4.3** makes the backend serve the favicon the browser requests (`/favicon.ico` + `/icon.svg` routes in `backend/src/main.py`, static copies under `backend/src/static/`, hidden from the `/docs` schema). Remaining work is concentrated in Milestones 7-10: full E2E scenario verification (plus a customer-facing conversation UI), auth, testing, and deployment configuration.
 
 ---
 
@@ -21,7 +21,7 @@ METIS is a full-stack AI-powered business management platform built with Next.js
 | Firestore service with local SQLite fallback (`backend/data/metis.db`, persistent) | ✅ Working | `backend/src/services/firestore.py` `SqliteDB` |
 | Gemini AI service wrapper | ✅ Working | `backend/src/services/gemini.py` |
 | Pydantic v2 data models (incl. chat schemas) | ✅ Working | `backend/src/models/schemas.py` |
-| Environment configuration | ✅ Working | `backend/src/core/config.py` *(0.3.0: `APP_VERSION=0.3.0`)* |
+| Environment configuration | ✅ Working | `backend/src/core/config.py` *(0.3.0: `APP_VERSION=0.3.0`; 0.4.1: `APP_VERSION=0.4.1` in config and `.env`; 0.4.3: `APP_VERSION=0.4.3`)* |
 | Health check endpoint | ✅ Working | `backend/src/main.py` |
 
 ### Agent Framework
@@ -33,7 +33,7 @@ METIS is a full-stack AI-powered business management platform built with Next.js
 | Sales Agent (products, orders) | ✅ Working | `backend/src/agents/sales.py` *(0.3.0: reference resolution by ID / prefix / name, case-insensitive + fuzzy)* |
 | Support Agent (FAQs, complaints) | ✅ Working | `backend/src/agents/support.py` |
 | Marketing Agent (campaigns, content) | ✅ Working | `backend/src/agents/marketing.py` *(0.3.0: campaign product lookup tolerant of prefix/name)* |
-| Operations Agent (orders, inventory) | ✅ Working | `backend/src/agents/operations.py` |
+| Operations Agent (orders, inventory) | ✅ Working *(0.4.1: `create_product`, `delete_product` staged tools + `product_key_taken` check; 0.4.2: `set_stock` — immediate inventory override, 0 → out of stock)* | `backend/src/agents/operations.py` |
 | Analytics Agent (metrics, insights) | ✅ Working | `backend/src/agents/analytics.py` |
 
 ### REST API Endpoints
@@ -42,7 +42,7 @@ METIS is a full-stack AI-powered business management platform built with Next.js
 | `POST /api/business` | ✅ Implemented |
 | `GET /api/business/{id}` | ✅ Implemented |
 | `PUT /api/business/{id}` | ✅ Implemented |
-| `GET/POST/PUT/DELETE /api/products/{business_id}` | ✅ Implemented |
+| `GET/POST/PUT/DELETE /api/products/{business_id}` | ✅ Implemented *(0.4.1: optional `product_key` uniqueness → 409 on duplicate; PUT/DELETE verify existence + ownership (404) instead of blind writes)* |
 | `GET/POST/PUT/DELETE /api/customers/{business_id}` | ✅ Implemented |
 | `GET/POST/PUT/DELETE /api/orders/{business_id}` | ✅ Implemented |
 | `GET /api/agents/{business_id}` | ✅ Implemented |
@@ -65,11 +65,11 @@ METIS is a full-stack AI-powered business management platform built with Next.js
 | Business Chat | ✅ Implemented | `frontend/src/app/chat/page.tsx` |
 | Approval Center | ✅ Implemented *(0.3.0: approve/reject alerts show the real backend execution error)* | `frontend/src/app/approvals/page.tsx` |
 | Activity Feed | ✅ Implemented | `frontend/src/app/activity/page.tsx` |
-| Products | ✅ Implemented | `frontend/src/app/products/page.tsx` |
+| Products | ✅ Implemented *(0.4.1: revamped — live search, edit mode, delete with confirm, product-key chips)* | `frontend/src/app/products/page.tsx` |
 | Orders | ✅ Implemented | `frontend/src/app/orders/page.tsx` |
 | Customers | ✅ Implemented | `frontend/src/app/customers/page.tsx` |
 | Setup Wizard | ✅ Implemented | `frontend/src/components/SetupWizard.tsx` |
-| Sidebar Navigation | ✅ Implemented *(0.3.0: `v0.3.0` in footer)* | `frontend/src/components/Sidebar.tsx` |
+| Sidebar Navigation | ✅ Implemented *(0.3.0: `v0.3.0` in footer; 0.4.1: `v0.4.1`; 0.4.3: `v0.4.3`)* | `frontend/src/components/Sidebar.tsx` |
 | Header | ✅ Implemented | `frontend/src/components/Header.tsx` |
 | Gemini Key Panel (set/clear API key in-app) | ✅ Implemented *(0.3.0)* | `frontend/src/components/GeminiKeyPanel.tsx` |
 
@@ -154,6 +154,18 @@ METIS is a full-stack AI-powered business management platform built with Next.js
 | `ManagerAgent.delegate_task` made properly async (`await agent.handle_message`) | ✅ Fixed | `backend/src/agents/manager.py` |
 | Cloud Build image tags (`metis`, `$PROJECT_ID`/`$SHORT_SHA` substitutions) | ✅ Fixed | `deployment/cloudbuild.yaml` |
 
+### New & Fixed Since 2026-08-12 (0.4.1 → 0.4.3)
+
+| # | Release | Area | What | File |
+|---|---------|------|------|------|
+| 1 | 0.4.1 | Backend | Chat catalog tools: `create_product` (MEDIUM) and `delete_product` (HIGH) staged into the Approval Center, executed by the Operations Agent on approve | `backend/src/agents/operations.py`, `services/actions.py`, `api/routes.py` |
+| 2 | 0.4.1 | Backend | `product_key` — optional SKU, unique per business; duplicate → 409; agents check it via `product_key_taken` | `backend/src/models/schemas.py`, `api/routes.py` |
+| 3 | 0.4.1 | Backend | Product PUT/DELETE enforced existence + business ownership (previously wrote/deleted blindly) → 404 | `backend/src/api/routes.py` |
+| 4 | 0.4.1 | Frontend | Products UI revamp: live search (name/category/key), edit mode, delete with confirmation, product-key chips; split into `ProductForm`/`ProductCard` | `frontend/src/app/(owner)/products/*` |
+| 5 | 0.4.1 | Frontend | Favicon set (`icon.svg`, `favicon.ico`, `apple-icon.png`) — auto-served by Next.js | `frontend/src/app/` |
+| 6 | 0.4.2 | Backend | `set_stock` — immediate inventory-override tool (no approval): "mark Deadpool's Golden Glock out of stock" zeroes stock instantly | `backend/src/agents/operations.py`, `services/actions.py` |
+| 7 | 0.4.3 | Backend | Backend serves the favicon the browser requests: `GET /favicon.ico` (image/x-icon) + `GET /icon.svg` (image/svg+xml), static copies in `backend/src/static/`, routes hidden from the `/docs` schema; verified live (200s, `/api/*` untouched) | `backend/src/main.py`, `backend/src/static/` |
+
 ### Integration Gaps
 
 | Issue | Details |
@@ -184,10 +196,11 @@ METIS is a full-stack AI-powered business management platform built with Next.js
 - Input validation hardening
 - API key protection
 
-### Milestone 9 — Not Started
+### Milestone 9 — Partial (verification only, nothing committed)
 - `backend/tests/` directory is empty
 - Zero test coverage across all components
 - pytest configured but unused
+- *(0.4.1-0.4.3: ad-hoc FastAPI `TestClient` suites exercised product CRUD (incl. the `product_key` 409 path), the staged `create_product`/`delete_product` approval flow, and `set_stock` — including the `KeyError` it crashed on before the fix; run locally, not yet committed)*
 
 ### Milestone 10 — Partially Complete
 - Cloud Build config fixed (image tags now valid); pipeline not yet run live
@@ -236,7 +249,7 @@ METIS is a full-stack AI-powered business management platform built with Next.js
 | 4: API Layer | ✅ Complete | 100% |
 | 5: Frontend Foundation | ⚠️ Partial | 90% |
 | 6: Frontend Pages | ✅ Complete | 100% |
-| 7: E2E Demo Workflow | ⚠️ Partial | 70% |
+| 7: E2E Demo Workflow | ⚠️ Partial | 75% |
 | 8: Auth & Security | ❌ Not Started | 0% |
 | 9: Testing | ❌ Not Started | 0% |
 | 10: Deployment | ⚠️ Partial | 50% |

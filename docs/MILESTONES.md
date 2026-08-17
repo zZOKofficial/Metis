@@ -2,7 +2,7 @@
 
 > Build a company, not a science project.
 
-**Last Updated:** 2026-08-17 (METIS 0.4.1)
+**Last Updated:** 2026-08-17 (METIS 0.4.3)
 
 ---
 
@@ -17,10 +17,10 @@
 - [x] FastAPI application with CORS, middleware — `backend/src/main.py`
 - [x] Firestore integration (google-cloud-firestore) with local SQLite fallback — `backend/src/services/firestore.py` *(2026-08-12 (0.3.0): InMemoryDB replaced with a persistent local `SqliteDB` (`backend/data/metis.db`) — all data now survives restarts without Google Cloud)*
 - [x] Gemini/Vertex AI integration (google-genai) — `backend/src/services/gemini.py`
-- [x] Data models: Business, Product, Customer, Order, AgentLog, Approval, ChatMessage — `backend/src/models/schemas.py`
+- [x] Data models: Business, Product, Customer, Order, AgentLog, Approval, ChatMessage — `backend/src/models/schemas.py` *(0.4.1: `Product` gained `product_key` — optional SKU-style identifier, unique per business)*
 - [x] Chat message persistence (`chat_messages` collection) — `backend/src/services/firestore.py` (`chat_service`)
 - [x] Pydantic schemas for validation — `backend/src/models/schemas.py`
-- [x] Environment configuration (.env) — `backend/src/core/config.py` *(0.3.0: `APP_VERSION` bumped to 0.3.0 in both config and `.env`)*
+- [x] Environment configuration (.env) — `backend/src/core/config.py` *(0.3.0: `APP_VERSION` bumped to 0.3.0 in both config and `.env`; 0.4.1: bumped to 0.4.1, incl. the `.env` pin that overrides `config.py`; 0.4.3: bumped to 0.4.3)*
 - [x] Health check endpoint — `backend/src/main.py` (`/health`)
 
 ## Milestone 2: Agent Framework ✅
@@ -41,7 +41,7 @@
 - [x] **Sales Agent** — product search, recommendations, order creation — `backend/src/agents/sales.py` *(2026-08-12 (0.3.0): `create_order` now resolves customer/product references by full ID, ID prefix, or name — case-insensitive, with fuzzy fallback — so staged approvals no longer fail on truncated or hallucinated IDs)*
 - [x] **Support Agent** — FAQs, policy answers, escalation — `backend/src/agents/support.py`
 - [x] **Marketing Agent** — campaign creation, content generation — `backend/src/agents/marketing.py` *(0.3.0: campaign product reference resolution likewise tolerant of prefix/name matches)*
-- [x] **Operations Agent** — order management, inventory monitoring — `backend/src/agents/operations.py`
+- [x] **Operations Agent** — order management, inventory monitoring — `backend/src/agents/operations.py` *(0.4.1: added `create_product`, `delete_product` and `product_key_taken` uniqueness checks; 0.4.2: added `set_stock` — absolute inventory override, 0 → out of stock, executes immediately)*
 - [x] **Analytics Agent** — business metrics, insights, recommendations — `backend/src/agents/analytics.py`
 
 > **2026-08-12:** Fixed a regression where all agents except Manager were missing `__init__` (registry instantiation threw `TypeError`, 500s on `/api/agents`, `/api/analytics`). Each agent now defines `__init__(self, business_id)` calling `super().__init__(AgentType.X, business_id)`.
@@ -52,7 +52,7 @@
 **Goal:** Complete REST API for frontend consumption
 
 - [x] `/api/business` — CRUD business profile
-- [x] `/api/products` — CRUD products
+- [x] `/api/products` — CRUD products *(0.4.1: optional `product_key` uniqueness enforced (409) on create/update; PUT/DELETE now verify product existence + business ownership instead of blind writes)*
 - [x] `/api/customers` — CRUD customers
 - [x] `/api/orders` — CRUD orders *(2026-08-12: `POST /api/orders/{business_id}` now accepts `{product_id, quantity}` line items via `OrderItemCreate` — previously required full `OrderItem` objects (422); `total_amount` is now computed server-side)*
 - [x] `/api/agents` — agent status, activity, trigger actions
@@ -66,7 +66,7 @@
 
 - [x] Next.js 14 with App Router — `frontend/package.json`, `frontend/next.config.js`
 - [x] Tailwind CSS configuration — `frontend/tailwind.config.js`
-- [x] Shared layout with navigation — `frontend/src/app/layout.tsx`, `frontend/src/components/Sidebar.tsx` *(0.3.0: footer now shows `v0.3.0`)*
+- [x] Shared layout with navigation — `frontend/src/app/layout.tsx`, `frontend/src/components/Sidebar.tsx` *(0.3.0: footer now shows `v0.3.0`; 0.4.1: shows `v0.4.1`; 0.4.3: shows `v0.4.3`)*
 - [x] API client — `frontend/src/lib/api.ts` *(configurable via `NEXT_PUBLIC_API_URL`, falls back to `http://localhost:8000/api`; 0.3.0 adds `/models`, `/ai/config`, `/ai/config/clear` for the Gemini key panel)*
 - [x] TypeScript types matching backend models — `frontend/src/types/index.ts`
 - [ ] Authentication context — **Not implemented**
@@ -79,7 +79,7 @@
 - [x] **Business Chat** — chat interface with Manager Agent; persisted multi-turn history, Markdown rendering, survives reload; **Gemini API key can be set/cleared in-app** *(0.3.0)* — `frontend/src/app/chat/page.tsx`, `frontend/src/components/GeminiKeyPanel.tsx`
 - [x] **Approval Center** — pending actions with approve/reject; *error alerts now surface the real execution error from the backend (e.g. "Product X not found") instead of a generic message (0.3.0)* — `frontend/src/app/approvals/page.tsx`
 - [x] **Activity Feed** — chronological agent activity log — `frontend/src/app/activity/page.tsx`
-- [x] **Products** — product management UI — `frontend/src/app/products/page.tsx`
+- [x] **Products** — product management UI — `frontend/src/app/products/page.tsx` *(0.4.1: revamped — live search (name/category/product key), edit mode reusing the ledger form, delete with confirmation, product-key chips; split into `ProductForm.tsx` / `ProductCard.tsx`)*
 - [x] **Orders** — order management UI — `frontend/src/app/orders/page.tsx`
 - [x] **Customers** — customer management UI — `frontend/src/app/customers/page.tsx`
 
@@ -101,6 +101,12 @@
 
 > **Previous blocker RESOLVED (2026-08-12):** `SetupWizard` now calls `POST /api/business` and stores the backend-returned ID; `BusinessContext` hydrates `businessId` from `localStorage` on reload. All pages (Products, Orders, Customers, Dashboard, Agents, Activity, Approvals, Chat) are wired to the backend API with loading/error states. **Update (2026-08-12):** Chat conversations are persisted server-side (`chat_messages` collection), the Manager Agent receives the last 20 turns as multi-turn Gemini context, and the chat UI loads history on mount and renders Markdown. Remaining: customer-facing simulated conversation UI and a full single-pass verification of the 12-step scenario.
 >
+> **0.4.1 (2026-08-17):** The Business Chat gained real catalog management. `create_product` (MEDIUM) and `delete_product` (HIGH) are staged into the Approval Center — the owner approves and the Operations Agent executes. Products now carry an optional unique `product_key` (SKU) enforced by the API (409) and the agents; product PUT/DELETE routes previously wrote/deleted blindly — they now enforce existence and ownership. Products UI overhauled with live search, edit mode, delete with confirmation and product-key chips; frontend favicon set added (auto-served by Next.js). Version bumped to 0.4.1.
+>
+> **0.4.2 (2026-08-17):** Chat gained the `set_stock` inventory-override tool. It executes immediately instead of being staged — the owner can say "mark Deadpool's Golden Glock out of stock" and the stock is zeroed on the spot (`0` → out of stock) rather than the agent reporting it can't.
+>
+> **0.4.3 (2026-08-17):** The backend now serves the favicon the browser requests: `backend/src/static/favicon.ico` + `icon.svg` (copied from the frontend assets), served via new `GET /favicon.ico` (image/x-icon) and `GET /icon.svg` (image/svg+xml) routes in `backend/src/main.py`, hidden from the `/docs` schema. Verified on a live uvicorn: `/favicon.ico` → 200, `/icon.svg` → 200, `/health` → 200, `/api/*` untouched. Version bumped to 0.4.3 everywhere.
+
 > **0.3.0 (2026-08-12):** The chat prompt now shows full product/customer/order IDs (they were truncated to 8 chars, which led Gemini to stage approvals with invalid references); `create_order`/`create_campaign` resolve references by ID, prefix, or name (case-insensitive, fuzzy fallback for e.g. `prod_batmobile` → `Bat-Mobile`). Approval Center alerts surface the backend's actual execution error. Local persistence switched from in-memory to SQLite (`backend/data/metis.db`).
 
 ## Milestone 8: Auth & Security ❌
@@ -125,7 +131,7 @@
 - [ ] API integration tests
 - [ ] Error handling tests
 
-> **NOT STARTED:** `backend/tests/` directory exists but is empty. pytest and pytest-asyncio are in `requirements.txt` but zero tests written.
+> **PARTIAL (0.4.1):** `backend/tests/` still holds no committed tests, but ad-hoc FastAPI `TestClient` suites (run locally, not committed) exercised product CRUD (incl. the `product_key` 409 path), the staged `create_product`/`delete_product` approval flow, and `set_stock` inventory overrides — including the `KeyError` it crashed on before the fix. Writing these as permanent tests under `backend/tests/` is the next step for this milestone.
 
 ## Milestone 10: Deployment ⚠️
 **Goal:** Live on Google Cloud
@@ -178,7 +184,7 @@
 - id, name, category, description, contact_email, phone, operating_hours, policies, goals, created_at
 
 ### Product
-- id, business_id, name, description, price, stock, category, variants, status, created_at
+- id, business_id, name, description, price, stock, product_key (optional, unique per business — SKU), category, variants, status, created_at
 
 ### Customer
 - id, business_id, name, email, phone, total_orders, total_spent, created_at
