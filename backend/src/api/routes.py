@@ -348,6 +348,7 @@ You have tools available. Prefer calling a tool over guessing:
 - If the owner asks to create an order or a marketing campaign, call the matching tool - it will create an approval request for the owner to review.
 - If the owner asks to change an order's status, call update_order_status.
 - If the owner asks to restock a product (add stock / top up a product that is low or out of stock), call restock_product with the product ID and the quantity to add - it executes immediately.
+- If the owner asks to set a product's stock to a specific level or mark a product out of stock (stock to zero), call set_stock with the product ID or name and the new quantity - it executes immediately.
 - If the owner asks to add a new product to the catalog (with optional starting stock and product key), call create_product with the name, price and any other known details - it will create an approval request for the owner to review.
 - If the owner asks to remove a product from the catalog, call delete_product with the product ID or name - it will create an approval request for the owner to review.
 

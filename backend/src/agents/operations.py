@@ -165,6 +165,44 @@ Communication style: Organized, precise, proactive.'''
             'new_stock': new_stock,
         }
 
+    def set_stock(self, product_ref: str, quantity: int) -> dict[str, Any]:
+        '''Set a product's stock to an exact level. Resolves by ID or name.'''
+        try:
+            quantity = int(quantity)
+        except (TypeError, ValueError):
+            return {'success': False, 'error': 'Quantity must be a whole number.'}
+        if quantity < 0:
+            return {'success': False, 'error': 'Quantity must be zero or greater.'}
+
+        from ..agents.sales import SalesAgent
+        product = SalesAgent(self.business_id).resolve_product(product_ref)
+        if not product:
+            return {'success': False, 'error': f'Product {product_ref} not found.'}
+
+        old_stock = product.get('stock', 0)
+        if quantity <= 0:
+            new_status = 'out_of_stock'
+        elif product.get('status') == 'out_of_stock':
+            new_status = 'active'
+        else:
+            new_status = product.get('status', 'active')
+        update = {'stock': quantity, 'status': new_status}
+        product_service.update(product['id'], update)
+
+        self.log_action(
+            action='set_stock',
+            details={'product_id': product['id'], 'old_stock': old_stock, 'new_stock': quantity, 'status': new_status},
+            result=f'Set {product["name"]} stock: {old_stock} -> {quantity} ({new_status})',
+        )
+        return {
+            'success': True,
+            'product_id': product['id'],
+            'name': product['name'],
+            'old_stock': old_stock,
+            'new_stock': quantity,
+            'status': new_status,
+        }
+
     def product_key_taken(self, product_key: str, exclude_id: str = '') -> bool:
         """True if another product in this business already has the given key."""
         if not product_key:

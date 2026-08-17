@@ -153,6 +153,24 @@ TOOL_DECLARATIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "set_stock",
+        "description": "Set an existing product's stock to an exact level (inventory override). Use quantity 0 to mark a product out of stock. Executes immediately; no approval required.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "product_id": {
+                    "type": "STRING",
+                    "description": "The product ID or name to update.",
+                },
+                "quantity": {
+                    "type": "INTEGER",
+                    "description": "The new stock level. Use 0 to mark the product out of stock.",
+                },
+            },
+            "required": ["product_id", "quantity"],
+        },
+    },
+    {
         "name": "create_product",
         "description": "Add a new product to the catalog with a name, price and optional starting stock, product key (SKU), category and description. Creating a product needs owner approval, so an approval request is created instead of executing immediately.",
         "parameters": {
@@ -265,6 +283,9 @@ def handle_tool_call(business_id: str, name: str, args: dict[str, Any]) -> dict[
     if name == "restock_product":
         return _restock_product(business_id, args)
 
+    if name == "set_stock":
+        return _set_stock(business_id, args)
+
     return _read_only(business_id, name, args)
 
 
@@ -341,6 +362,17 @@ def _restock_product(business_id: str, args: dict[str, Any]) -> dict[str, Any]:
     )
     if not result.get("success"):
         return {"status": "failed", "error": result.get("error", "Restock failed.")}
+    return {"status": "executed", "result": result}
+
+
+def _set_stock(business_id: str, args: dict[str, Any]) -> dict[str, Any]:
+    operations = get_agent(AgentType.OPERATIONS, business_id)
+    result = operations.set_stock(
+        product_ref=args.get("product_id", ""),
+        quantity=args.get("quantity", 0),
+    )
+    if not result.get("success"):
+        return {"status": "failed", "error": result.get("error", "Stock update failed.")}
     return {"status": "executed", "result": result}
 
 
