@@ -54,9 +54,31 @@ def update_business(business_id: str, data: dict):
 
 # === Products ===
 
+def _product_key_taken(business_id: str, product_key: str, exclude_id: str = '') -> bool:
+    '''True if another product in this business already has the given key.'''
+    if not product_key:
+        return False
+    existing = product_service.list_all([
+        ('business_id', '==', business_id),
+        ('product_key', '==', product_key),
+    ])
+    return any(p['id'] != exclude_id for p in existing)
+
+
+def _get_owned_product(business_id: str, product_id: str) -> dict:
+    product = product_service.get(product_id)
+    if not product or product.get('business_id') != business_id:
+        raise HTTPException(status_code=404, detail='Product not found.')
+    return product
+
+
 @router.post('/products/{business_id}')
 def create_product(business_id: str, data: ProductCreate):
     product_data = data.model_dump()
+    product_key = (product_data.get('product_key') or '').strip()
+    if _product_key_taken(business_id, product_key):
+        raise HTTPException(status_code=409, detail=f'A product with key "{product_key}" already exists.')
+    product_data['product_key'] = product_key
     product_data['business_id'] = business_id
     product_id = product_service.create(product_data)
     return {'id': product_id, 'message': 'Product created.'}
@@ -74,20 +96,24 @@ def list_products(business_id: str, category: str = '', in_stock: bool = False):
 
 @router.get('/products/{business_id}/{product_id}')
 def get_product(business_id: str, product_id: str):
-    product = product_service.get(product_id)
-    if not product or product.get('business_id') != business_id:
-        raise HTTPException(status_code=404, detail='Product not found.')
-    return product
+    return _get_owned_product(business_id, product_id)
 
 
 @router.put('/products/{business_id}/{product_id}')
 def update_product(business_id: str, product_id: str, data: dict):
+    _get_owned_product(business_id, product_id)
+    if 'product_key' in data:
+        product_key = (data.get('product_key') or '').strip()
+        if _product_key_taken(business_id, product_key, exclude_id=product_id):
+            raise HTTPException(status_code=409, detail=f'A product with key "{product_key}" already exists.')
+        data['product_key'] = product_key
     product_service.update(product_id, data)
     return {'message': 'Product updated.'}
 
 
 @router.delete('/products/{business_id}/{product_id}')
 def delete_product(business_id: str, product_id: str):
+    _get_owned_product(business_id, product_id)
     product_service.delete(product_id)
     return {'message': 'Product deleted.'}
 
@@ -322,6 +348,8 @@ You have tools available. Prefer calling a tool over guessing:
 - If the owner asks to create an order or a marketing campaign, call the matching tool - it will create an approval request for the owner to review.
 - If the owner asks to change an order's status, call update_order_status.
 - If the owner asks to restock a product (add stock / top up a product that is low or out of stock), call restock_product with the product ID and the quantity to add - it executes immediately.
+- If the owner asks to add a new product to the catalog (with optional starting stock and product key), call create_product with the name, price and any other known details - it will create an approval request for the owner to review.
+- If the owner asks to remove a product from the catalog, call delete_product with the product ID or name - it will create an approval request for the owner to review.
 
 After the tools run, summarize concisely what you did or what is awaiting approval.'''
 

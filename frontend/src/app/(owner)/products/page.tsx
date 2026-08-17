@@ -1,27 +1,24 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useBusiness } from '@/lib/BusinessContext';
 import api from '@/lib/api';
-import { notifyDataChanged } from '@/lib/refresh';
+import { useDataRefresh } from '@/lib/refresh';
 import { Product } from '@/types';
-import { Docket, LoadingState, EmptyState, Cash } from '@/components/ui';
+import { Docket, LoadingState, EmptyState } from '@/components/ui';
+import ProductForm from './ProductForm';
+import ProductCard from './ProductCard';
 
 export default function ProductsPage() {
   const { businessId } = useBusiness();
   const [products, setProducts] = useState<Product[]>([]);
-  const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ name: '', description: '', price: '', stock: '', category: '' });
-  const [restockQty, setRestockQty] = useState<Record<string, string>>({});
-  const [restocking, setRestocking] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!businessId) return;
-    loadProducts();
-  }, [businessId]);
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<Product | null>(null);
+  const [query, setQuery] = useState('');
 
   const loadProducts = async () => {
+    if (!businessId) return;
     setLoading(true);
     try {
       const res = await api.get(`/products/${businessId}`);
@@ -33,45 +30,32 @@ export default function ProductsPage() {
     }
   };
 
-  const handleAdd = async () => {
-    if (!form.name || !form.price) return alert('Name and price are required.');
-    try {
-      await api.post(`/products/${businessId}`, {
-        name: form.name,
-        description: form.description,
-        price: parseFloat(form.price),
-        stock: parseInt(form.stock) || 0,
-        category: form.category,
-        status: 'active',
-        variants: [],
-      });
-      setForm({ name: '', description: '', price: '', stock: '', category: '' });
-      setShowForm(false);
-      loadProducts();
-      notifyDataChanged();
-    } catch {
-      alert('Failed to add product.');
-    }
+  useEffect(() => {
+    if (!businessId) return;
+    loadProducts();
+  }, [businessId]);
+
+  useDataRefresh(loadProducts);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return products;
+    return products.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        (p.category || '').toLowerCase().includes(q) ||
+        (p.product_key || '').toLowerCase().includes(q)
+    );
+  }, [products, query]);
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditing(null);
   };
 
-  const handleRestock = async (product: Product) => {
-    const qty = parseInt(restockQty[product.id] || '', 10);
-    if (!qty || qty <= 0) return alert('Enter a quantity greater than zero.');
-    if (restocking) return;
-    setRestocking(product.id);
-    try {
-      await api.put(`/products/${businessId}/${product.id}`, {
-        stock: product.stock + qty,
-        status: product.status === 'out_of_stock' ? 'active' : product.status,
-      });
-      setRestockQty((prev) => ({ ...prev, [product.id]: '' }));
-      loadProducts();
-      notifyDataChanged();
-    } catch {
-      alert('Failed to restock. Make sure the backend is running.');
-    } finally {
-      setRestocking(null);
-    }
+  const startEdit = (product: Product) => {
+    setShowForm(false);
+    setEditing(product);
   };
 
   if (!businessId) {
@@ -88,55 +72,38 @@ export default function ProductsPage() {
         title='Products'
         memo='shelf register · what the sales agent can promise'
         action={
-          <button onClick={() => setShowForm(!showForm)} className='btn btn-primary'>
+          <button
+            onClick={() => {
+              closeForm();
+              setShowForm(!showForm);
+            }}
+            className='btn btn-primary'
+          >
             {showForm ? '✕ Close form' : '+ New entry'}
           </button>
         }
       />
 
-      {showForm && (
-        <div className='ledger p-6 sm:p-8'>
-          <p className='kicker mb-5'>Stock entry form · line item</p>
-          <div className='grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6'>
-            <div>
-              <label className='label mb-1' htmlFor='p-name'>
-                Name *
-              </label>
-              <input id='p-name' className='field' value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder='Product name' />
-            </div>
-            <div>
-              <label className='label mb-1' htmlFor='p-category'>
-                Category
-              </label>
-              <input id='p-category' className='field' value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder='e.g., Shirts' />
-            </div>
-            <div>
-              <label className='label mb-1' htmlFor='p-price'>
-                Price (৳) *
-              </label>
-              <input id='p-price' className='field tabular' type='number' value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} placeholder='0.00' />
-            </div>
-            <div>
-              <label className='label mb-1' htmlFor='p-stock'>
-                Stock on hand
-              </label>
-              <input id='p-stock' className='field tabular' type='number' value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} placeholder='0' />
-            </div>
-            <div className='sm:col-span-2'>
-              <label className='label mb-1' htmlFor='p-desc'>
-                Description
-              </label>
-              <textarea id='p-desc' className='field' rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder='What is it, and what makes it worth the price?' />
-            </div>
-          </div>
-          <div className='flex gap-3 mt-7'>
-            <button onClick={() => setShowForm(false)} className='btn btn-ghost'>
-              Cancel
-            </button>
-            <button onClick={handleAdd} className='btn btn-primary'>
-              File entry
-            </button>
-          </div>
+      {(showForm || editing) && (
+        <ProductForm
+          initial={editing}
+          onDone={closeForm}
+          onCancel={closeForm}
+        />
+      )}
+
+      {products.length > 0 && (
+        <div className='ledger--flat p-4 sm:p-5'>
+          <label className='label mb-2' htmlFor='p-search'>
+            Search the shelves
+          </label>
+          <input
+            id='p-search'
+            className='field'
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder='By name, category or product key…'
+          />
         </div>
       )}
 
@@ -144,54 +111,15 @@ export default function ProductsPage() {
         <LoadingState label='counting the shelves…' />
       ) : products.length === 0 ? (
         <EmptyState title='The shelves are empty' note='file your first stock entry to give the sales agent something to sell' />
+      ) : filtered.length === 0 ? (
+        <EmptyState title='Nothing matches that search' note='try a different name, category or product key' />
       ) : (
         <div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-7'>
-          {products.map((product) => (
-            <article key={product.id} className='ledger p-5 flex flex-col'>
-              <header className='flex items-start justify-between gap-3'>
-                <h2 className='font-display text-lg font-bold leading-tight'>{product.name}</h2>
-                <StockTicket stock={product.stock} />
-              </header>
-              <p className='font-mono text-[10px] uppercase tracking-[0.14em] text-ink-faint mt-1.5'>
-                {product.category || 'uncategorised'}
-              </p>
-              <p className='text-sm text-ink-soft leading-relaxed mt-3 mb-4 flex-1'>
-                {product.description || 'No description on file.'}
-              </p>
-              <form
-                className='flex items-center gap-2 border-t border-[var(--rule)] pt-3 mb-3'
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleRestock(product);
-                }}
-              >
-                <input
-                  type='number'
-                  min='1'
-                  className='field tabular !py-2 !px-3 w-24'
-                  placeholder='qty'
-                  value={restockQty[product.id] || ''}
-                  onChange={(e) => setRestockQty((prev) => ({ ...prev, [product.id]: e.target.value }))}
-                  aria-label={`Restock quantity for ${product.name}`}
-                />
-                <button type='submit' disabled={restocking !== null} className='btn btn-ghost flex-1 !py-2 !px-3 text-[11px]'>
-                  {restocking === product.id ? 'Restocking…' : '+ Restock'}
-                </button>
-              </form>
-              <footer className='flex items-baseline justify-between border-t border-[var(--rule)] pt-3 mt-auto'>
-                <Cash value={product.price} className='font-mono text-xl font-semibold' />
-                <span className='font-mono text-[10px] uppercase tracking-[0.14em] text-ink-faint'>per unit</span>
-              </footer>
-            </article>
+          {filtered.map((product) => (
+            <ProductCard key={product.id} product={product} onEdit={startEdit} />
           ))}
         </div>
       )}
     </div>
   );
-}
-
-function StockTicket({ stock }: { stock: number }) {
-  const tone = stock > 5 ? 'ticket--ok' : stock > 0 ? 'ticket--warn' : 'ticket--danger';
-  const label = stock > 5 ? `${stock} in stock` : stock > 0 ? `low · ${stock} left` : 'out of stock';
-  return <span className={`ticket ${tone}`}>{label}</span>;
 }

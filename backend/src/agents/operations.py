@@ -165,6 +165,76 @@ Communication style: Organized, precise, proactive.'''
             'new_stock': new_stock,
         }
 
+    def product_key_taken(self, product_key: str, exclude_id: str = '') -> bool:
+        """True if another product in this business already has the given key."""
+        if not product_key:
+            return False
+        existing = product_service.list_all([
+            ('business_id', '==', self.business_id),
+            ('product_key', '==', product_key),
+        ])
+        return any(p['id'] != exclude_id for p in existing)
+
+    def create_product(self, name: str, price: float, stock: int = 0, product_key: str = '', category: str = '', description: str = '') -> dict[str, Any]:
+        '''Add a new product to the catalog.'''
+        name = (name or '').strip()
+        try:
+            price = float(price)
+        except (TypeError, ValueError):
+            return {'success': False, 'error': 'Price must be a number.'}
+        try:
+            stock = int(stock)
+        except (TypeError, ValueError):
+            return {'success': False, 'error': 'Stock must be a whole number.'}
+        if not name:
+            return {'success': False, 'error': 'Product name is required.'}
+        if price < 0 or stock < 0:
+            return {'success': False, 'error': 'Price and stock must not be negative.'}
+
+        product_key = (product_key or '').strip()
+        if self.product_key_taken(product_key):
+            return {'success': False, 'error': f'A product with key "{product_key}" already exists.'}
+
+        product_id = product_service.create({
+            'name': name,
+            'description': description or '',
+            'price': price,
+            'stock': stock,
+            'product_key': product_key,
+            'category': category or '',
+            'variants': [],
+            'status': 'out_of_stock' if stock <= 0 else 'active',
+            'business_id': self.business_id,
+        })
+
+        self.log_action(
+            action='create_product',
+            details={'product_id': product_id, 'name': name, 'stock': stock, 'product_key': product_key, 'price': price},
+            result=f'Created product "{name}" with {stock} units in stock.',
+        )
+        return {
+            'success': True,
+            'product_id': product_id,
+            'name': name,
+            'stock': stock,
+            'product_key': product_key,
+            'price': price,
+        }
+
+    def delete_product(self, product_id: str) -> dict[str, Any]:
+        '''Remove a product from the catalog.'''
+        product = product_service.get(product_id)
+        if not product or product.get('business_id') != self.business_id:
+            return {'success': False, 'error': f'Product {product_id} not found.'}
+
+        product_service.delete(product_id)
+        self.log_action(
+            action='delete_product',
+            details={'product_id': product_id, 'name': product.get('name', '')},
+            result=f'Deleted product "{product.get("name", "")}" from the catalog.',
+        )
+        return {'success': True, 'product_id': product_id, 'name': product.get('name', '')}
+
     def check_inventory_levels(self) -> dict[str, Any]:
         products = product_service.list_all([('business_id', '==', self.business_id)])
         low_stock = []

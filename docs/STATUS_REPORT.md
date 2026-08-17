@@ -1,6 +1,6 @@
 # METIS — Status Report
 
-**Date:** 2026-08-12 (updated 2026-08-12 — METIS 0.3.0)
+**Date:** 2026-08-17 (updated 2026-08-17 — METIS 0.4.1)
 **Auditor:** Automated codebase analysis
 **Overall Completion:** ~80%
 

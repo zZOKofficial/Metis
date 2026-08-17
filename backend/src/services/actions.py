@@ -153,6 +153,54 @@ TOOL_DECLARATIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "create_product",
+        "description": "Add a new product to the catalog with a name, price and optional starting stock, product key (SKU), category and description. Creating a product needs owner approval, so an approval request is created instead of executing immediately.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "name": {
+                    "type": "STRING",
+                    "description": "Product name.",
+                },
+                "price": {
+                    "type": "NUMBER",
+                    "description": "Selling price per unit.",
+                },
+                "stock": {
+                    "type": "INTEGER",
+                    "description": "Starting stock on hand. Optional; defaults to 0.",
+                },
+                "product_key": {
+                    "type": "STRING",
+                    "description": "Optional product key / SKU identifier. Must be unique within the business if provided.",
+                },
+                "category": {
+                    "type": "STRING",
+                    "description": "Optional product category.",
+                },
+                "description": {
+                    "type": "STRING",
+                    "description": "Optional product description.",
+                },
+            },
+            "required": ["name", "price"],
+        },
+    },
+    {
+        "name": "delete_product",
+        "description": "Remove a product from the catalog permanently. Deleting a product needs owner approval, so an approval request is created instead of executing immediately.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "product_id": {
+                    "type": "STRING",
+                    "description": "The product ID or name to delete.",
+                }
+            },
+            "required": ["product_id"],
+        },
+    },
+    {
         "name": "create_campaign",
         "description": "Create a marketing campaign for a product. Requires owner approval, so an approval request is created instead of executing immediately.",
         "parameters": {
@@ -190,11 +238,13 @@ STOREFRONT_TOOL_DECLARATIONS = [
     t for t in TOOL_DECLARATIONS if t["name"] in STOREFRONT_TOOL_NAMES
 ]
 
-STAGED_TOOLS: set[str] = {"create_order", "create_campaign"}
+STAGED_TOOLS: set[str] = {"create_order", "create_campaign", "create_product", "delete_product"}
 
 STAGED_RISK: dict[str, RiskLevel] = {
     "create_order": RiskLevel.MEDIUM,
     "create_campaign": RiskLevel.HIGH,
+    "create_product": RiskLevel.MEDIUM,
+    "delete_product": RiskLevel.HIGH,
 }
 
 
@@ -346,6 +396,70 @@ def _stage_action(business_id: str, name: str, args: dict[str, Any]) -> dict[str
             "result": {"message": "Approval request created.", "approval_id": approval_id},
         }
 
+    if name == "create_product":
+        name_arg = str(args.get("name", "") or "").strip()
+        price_arg = args.get("price")
+        if not name_arg:
+            return {"status": "failed", "error": "create_product requires a product name."}
+        try:
+            price_value = float(price_arg)
+        except (TypeError, ValueError):
+            return {"status": "failed", "error": "Product price must be a number."}
+        product_key_arg = str(args.get("product_key", "") or "").strip()
+
+        operations = get_agent(AgentType.OPERATIONS, business_id)
+        if operations.product_key_taken(product_key_arg):
+            return {
+                "status": "failed",
+                "error": f"A product with key '{product_key_arg}' already exists.",
+            }
+
+        canonical = {
+            "name": name_arg,
+            "price": price_value,
+            "stock": args.get("stock") or 0,
+            "product_key": product_key_arg,
+            "category": args.get("category", "") or "",
+            "description": args.get("description", "") or "",
+        }
+        approval_id = manager.request_approval(
+            agent_type=AgentType.OPERATIONS,
+            action=f"Create product \"{name_arg}\" (price {price_value})",
+            reason="New product requested via chat. Your approval is required before it enters the catalog.",
+            risk_level=STAGED_RISK["create_product"],
+            details={"tool": "create_product", "params": canonical},
+        )
+        return {
+            "status": "staged",
+            "approval_id": approval_id,
+            "result": {"message": "Approval request created.", "approval_id": approval_id},
+        }
+
+    if name == "delete_product":
+        product_ref = args.get("product_id", "")
+        if not product_ref:
+            return {"status": "failed", "error": "delete_product requires product_id."}
+        from ..agents.sales import SalesAgent
+
+        product = SalesAgent(business_id).resolve_product(product_ref)
+        if not product:
+            return {
+                "status": "failed",
+                "error": f"Product '{product_ref}' not found.",
+            }
+        approval_id = manager.request_approval(
+            agent_type=AgentType.OPERATIONS,
+            action=f"Delete product \"{product['name']}\" from the catalog",
+            reason="Product deletion requested via chat. Your approval is required before it is removed permanently.",
+            risk_level=STAGED_RISK["delete_product"],
+            details={"tool": "delete_product", "params": {"product_id": product["id"]}},
+        )
+        return {
+            "status": "staged",
+            "approval_id": approval_id,
+            "result": {"message": "Approval request created.", "approval_id": approval_id},
+        }
+
     if name == "create_campaign":
         approval_id = manager.request_approval(
             agent_type=AgentType.MARKETING,
@@ -389,6 +503,21 @@ def execute_staged_action(business_id: str, approval: dict[str, Any]) -> dict[st
             )
             result.pop("requires_approval", None)
             return result
+
+        if tool == "create_product":
+            operations = get_agent(AgentType.OPERATIONS, business_id)
+            return operations.create_product(
+                name=params.get("name", ""),
+                price=params.get("price", 0),
+                stock=params.get("stock", 0),
+                product_key=params.get("product_key", ""),
+                category=params.get("category", ""),
+                description=params.get("description", ""),
+            )
+
+        if tool == "delete_product":
+            operations = get_agent(AgentType.OPERATIONS, business_id)
+            return operations.delete_product(product_id=params.get("product_id", ""))
     except Exception as e:
         return {"success": False, "error": str(e)}
 

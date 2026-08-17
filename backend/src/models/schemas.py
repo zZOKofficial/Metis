@@ -99,6 +99,7 @@ class ProductBase(BaseModel):
     description: str = ""
     price: float
     stock: int = 0
+    product_key: str = ""
     category: str = ""
     variants: list[ProductVariant] = Field(default_factory=list)
     status: ProductStatus = ProductStatus.ACTIVE

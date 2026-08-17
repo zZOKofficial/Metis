@@ -2,7 +2,7 @@
 
 > Build a company, not a science project.
 
-**Last Updated:** 2026-08-12 (METIS 0.3.0)
+**Last Updated:** 2026-08-17 (METIS 0.4.1)
 
 ---
 
