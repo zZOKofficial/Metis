@@ -225,7 +225,7 @@ export default function GeminiKeyPanel({
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
                   placeholder='Paste key…'
-                  autoComplete='off'
+                  autoComplete='new-password'
                   spellCheck={false}
                 />
                 <button

@@ -264,7 +264,7 @@ export default function ChatPage() {
                   value={gateKey}
                   onChange={(e) => setGateKey(e.target.value)}
                   placeholder='Paste your Gemini API key'
-                  autoComplete='off'
+                  autoComplete='new-password'
                   spellCheck={false}
                 />
                 <div className='flex justify-end mt-5'>
