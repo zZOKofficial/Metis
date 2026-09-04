@@ -1,6 +1,10 @@
+'use client';
+
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Business } from '@/types';
-import { businessExists } from '@/lib/api';
+import { fetchMyBusinesses } from '@/lib/api';
+
+const CACHE_KEY = 'metis_business';
 
 interface BusinessContextType {
   currentBusiness: Business | null;
@@ -8,6 +12,8 @@ interface BusinessContextType {
   businessId: string;
   setBusinessId: (id: string) => void;
   clearBusiness: () => void;
+  /** False until the backend has told us what this account actually owns. */
+  ready: boolean;
 }
 
 const BusinessContext = createContext<BusinessContextType | undefined>(undefined);
@@ -15,32 +21,53 @@ const BusinessContext = createContext<BusinessContextType | undefined>(undefined
 export function BusinessProvider({ children }: { children: ReactNode }) {
   const [currentBusiness, setCurrentBusiness] = useState<Business | null>(null);
   const [businessId, setBusinessId] = useState<string>('');
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem('metis_business');
-    if (!saved) return;
-
-    let business: Business;
+    // Paint from cache immediately so the desk doesn't flash empty, then
+    // reconcile with the backend. The cache is a convenience, never the
+    // authority: it survives a database reset and, now that accounts exist,
+    // could belong to a different user than the one signed in.
+    let cached: Business | null = null;
     try {
-      business = JSON.parse(saved);
+      const saved = localStorage.getItem(CACHE_KEY);
+      if (saved) cached = JSON.parse(saved);
     } catch {
-      localStorage.removeItem('metis_business');
-      return;
+      localStorage.removeItem(CACHE_KEY);
     }
 
-    setCurrentBusiness(business);
-    setBusinessId(business.id);
+    if (cached) {
+      setCurrentBusiness(cached);
+      setBusinessId(cached.id);
+    }
 
-    // The cached business can outlive the backend it was created against.
-    // Drop it if the backend no longer knows it, so the user lands on the
-    // Setup Wizard instead of a wall of 404s.
     let cancelled = false;
-    businessExists(business.id).then((exists) => {
-      if (cancelled || exists) return;
-      localStorage.removeItem('metis_business');
-      setCurrentBusiness(null);
-      setBusinessId('');
+    fetchMyBusinesses().then((owned) => {
+      if (cancelled) return;
+
+      // Backend unreachable: keep whatever we restored and let the pages
+      // surface the error, rather than wrongly concluding the user owns
+      // nothing and dropping them into the Setup Wizard.
+      if (owned === null) {
+        setReady(true);
+        return;
+      }
+
+      const match = cached ? owned.find((b) => b.id === cached!.id) : undefined;
+      const next = match || owned[0] || null;
+
+      if (next) {
+        setCurrentBusiness(next);
+        setBusinessId(next.id);
+        localStorage.setItem(CACHE_KEY, JSON.stringify(next));
+      } else {
+        setCurrentBusiness(null);
+        setBusinessId('');
+        localStorage.removeItem(CACHE_KEY);
+      }
+      setReady(true);
     });
+
     return () => {
       cancelled = true;
     };
@@ -49,11 +76,13 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
   const clearBusiness = () => {
     setCurrentBusiness(null);
     setBusinessId('');
-    localStorage.removeItem('metis_business');
+    localStorage.removeItem(CACHE_KEY);
   };
 
   return (
-    <BusinessContext.Provider value={{ currentBusiness, setCurrentBusiness, businessId, setBusinessId, clearBusiness }}>
+    <BusinessContext.Provider
+      value={{ currentBusiness, setCurrentBusiness, businessId, setBusinessId, clearBusiness, ready }}
+    >
       {children}
     </BusinessContext.Provider>
   );

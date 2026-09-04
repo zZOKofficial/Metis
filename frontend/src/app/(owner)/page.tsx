@@ -10,7 +10,7 @@ import SetupWizard from '@/components/SetupWizard';
 import { Docket, LoadingState, AgentDot, AGENT_LABEL, Cash } from '@/components/ui';
 
 export default function DashboardPage() {
-  const { businessId, currentBusiness } = useBusiness();
+  const { businessId, currentBusiness, ready } = useBusiness();
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [agents, setAgents] = useState<AgentStatus[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,6 +63,10 @@ export default function DashboardPage() {
   }, [loadData]);
 
   useDataRefresh(loadData);
+
+  if (!ready) {
+    return <LoadingState label='opening the books…' />;
+  }
 
   if (!businessId) {
     return <SetupWizard />;

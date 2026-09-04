@@ -56,6 +56,32 @@ def require_business_access(
     return business
 
 
+def require_user(uid: Optional[str] = Depends(get_current_uid)) -> Optional[str]:
+    '''Demand a signed-in caller, for routes that create ownership.
+
+    Most routes derive their authorisation from the business in the path, but
+    POST /business and POST /demo/seed have no business yet -- they mint one.
+    Without this, an anonymous caller could keep creating businesses that no
+    account owns and that ownership checks would then wave through.
+    '''
+    if settings.METIS_AUTH_ENABLED and not uid:
+        raise HTTPException(status_code=401, detail='Authentication required.')
+    return uid
+
+
+def list_owned_businesses(uid: Optional[str]) -> list[dict]:
+    '''Businesses belonging to a caller.
+
+    With auth off there is no identity to filter by, so every business is
+    "yours" -- which is exactly right for a single-user local install.
+    '''
+    if not settings.METIS_AUTH_ENABLED:
+        return business_service.list_all()
+    if not uid:
+        return []
+    return business_service.list_all([('owner_uid', '==', uid)])
+
+
 def get_business_or_404(business_id: str) -> dict:
     '''Existence check only, for the public storefront routes.
 

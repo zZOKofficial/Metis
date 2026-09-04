@@ -1,4 +1,4 @@
-import { API_BASE } from './api';
+import { API_BASE, authHeaders } from './api';
 
 export interface StreamHandlers<TResponse = any> {
   onDelta?: (text: string) => void;
@@ -21,7 +21,7 @@ export async function streamChat<TResponse = any>(
   try {
     const res = await fetch(`${API_BASE}${path}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await authHeaders(path)) },
       body: JSON.stringify(body),
     });
     if (!res.ok || !res.body) {

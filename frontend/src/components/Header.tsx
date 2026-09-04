@@ -1,16 +1,29 @@
 'use client';
 
 import { useBusiness } from '@/lib/BusinessContext';
+import { useAuth } from '@/lib/AuthContext';
 import { useRouter } from 'next/navigation';
 
 export default function Header({ onMenu }: { onMenu: () => void }) {
   const { currentBusiness, clearBusiness } = useBusiness();
+  const { user, enabled, signOut } = useAuth();
   const router = useRouter();
 
   const handleReset = () => {
     if (confirm('Reset your business? This will clear all local data.')) {
       clearBusiness();
       router.push('/');
+    }
+  };
+
+  const handleSignOut = async () => {
+    // Clear the cached business too: the next person to sign in on this
+    // machine must not inherit the last one's shop.
+    clearBusiness();
+    try {
+      await signOut();
+    } finally {
+      router.replace('/login');
     }
   };
 
@@ -42,6 +55,22 @@ export default function Header({ onMenu }: { onMenu: () => void }) {
                 className='font-mono text-[10px] uppercase tracking-[0.14em] text-card/60 border border-card/25 px-2.5 py-1 hover:text-card hover:border-card/60 transition-colors'
               >
                 Reset
+              </button>
+            </>
+          )}
+          {enabled && user && (
+            <>
+              <span
+                className='hidden lg:inline font-mono text-[10px] uppercase tracking-[0.14em] text-card/45 truncate max-w-[180px]'
+                title={user.email || undefined}
+              >
+                {user.email}
+              </span>
+              <button
+                onClick={handleSignOut}
+                className='font-mono text-[10px] uppercase tracking-[0.14em] text-card/60 border border-card/25 px-2.5 py-1 hover:text-card hover:border-card/60 transition-colors'
+              >
+                Sign out
               </button>
             </>
           )}
