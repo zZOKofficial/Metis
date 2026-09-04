@@ -728,10 +728,10 @@ def get_dashboard(business_id: str):
 
 
 @router.get('/analytics/{business_id}/revenue')
-def get_revenue(business_id: str):
+def get_revenue(business_id: str, period: str = 'all'):
     from ..agents.registry import get_agent
     analytics = get_agent(AgentType.ANALYTICS, business_id)
-    return analytics.get_revenue()
+    return analytics.get_revenue(period)
 
 
 @router.get('/analytics/{business_id}/top-products')

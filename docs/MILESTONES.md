@@ -2,7 +2,7 @@
 
 > Build a company, not a science project.
 
-**Last Updated:** 2026-09-04 (METIS 0.6.0)
+**Last Updated:** 2026-09-04 (METIS 0.7.0)
 
 ---
 
@@ -134,18 +134,18 @@
 
 > **NOT STARTED:** All API endpoints are completely open. No login page, no user management, no route protection.
 
-## Milestone 9: Testing ❌
+## Milestone 9: Testing ✅ (committed suite)
 **Goal:** Reliable, tested system
 
-- [ ] Agent routing tests
-- [ ] Permission enforcement tests
-- [ ] Order creation flow tests
-- [ ] Inventory update tests
-- [ ] Approval workflow tests
-- [ ] API integration tests
-- [ ] Error handling tests
+- [x] Agent routing tests — `backend/tests/test_agent_permissions.py`
+- [x] Permission enforcement tests — `PERMISSION_MATRIX`/`can_request` fully covered, `backend/tests/test_agent_permissions.py`
+- [x] Order creation flow tests — totals, inventory decrement, customer booking, insufficient-stock/unknown-customer/unknown-product rejection, `backend/tests/test_orders_api.py`
+- [x] Inventory update tests — restock/set-stock/mark-out-of-stock via mock-AI chat, `backend/tests/test_chat_mock_ai.py`
+- [x] Approval workflow tests — stage/approve/reject, already-resolved guard, cross-business 404, execution-failure → `FAILED` (not `approved`), `backend/tests/test_approvals_api.py`
+- [x] API integration tests — business/products/customers/orders/analytics/demo-seed, `backend/tests/test_*_api.py`
+- [x] Error handling tests — 404/409/400 paths across products, customers, orders, approvals
 
-> **PARTIAL (0.5.0):** `backend/tests/` still holds no committed tests, but `backend/scripts/e2e_demo.py` is now committed — 27 checks green on a clean SQLite DB (incl. the `product_key` 409 path, ownership 404s, staged `create_product`/`create_order` approval flows and `set_stock` behavior through the live API with real Gemini). Writing permanent pytest unit/integration suites under `backend/tests/` (Phase 2 of the roadmap) is the next step for this milestone.
+> **0.7.0 (2026-09-04):** Milestone 9 gets a committed pytest suite — `backend/tests/` (58 tests, `pytest.ini` at the backend root). `conftest.py` gives every test a fresh temp SQLite DB (each `FirestoreService` singleton's cached `_db` handle is reset alongside the module-level one) and mock AI mode on (`METIS_MOCK_AI=1`), so the whole suite runs with no Gemini key and never touches `backend/data/metis.db`. Covers business/product/customer/order CRUD, `product_key` 409, cross-business 404 ownership guards, order booking/release/reapply on status transitions, revenue recognition, the approval stage → approve/reject → execute pipeline (incl. the execution-failure → `FAILED` path), the full `PERMISSION_MATRIX`, mock-AI chat tool dispatch (restock/set-stock/mark-out-of-stock/add-product/delete-product/move-order-status), and demo seeding. Found and fixed a real bug along the way: `GET /analytics/{business_id}/revenue` silently ignored the documented `period` (`today`/`7d`/`30d`) query param — the route never accepted it, so it always behaved like `all`; `backend/src/api/routes.py` now passes it through. `backend/scripts/e2e_demo.py` (27/27, incl. live-Gemini flows) remains as-is for manual/live-key verification.
 
 ## Milestone 10: Deployment ⚠️
 **Goal:** Live on Google Cloud

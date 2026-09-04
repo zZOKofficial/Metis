@@ -241,8 +241,9 @@ The pipeline builds both images, pushes them to Container Registry, and deploys 
 
 - **Complete (Milestones 0-4, 6):** core backend, agent framework, all 6 agents, REST API, all frontend pages
 - **Complete (Milestone 7, ~95%):** E2E demo workflow — business setup → catalog → storefront customer chat → orders → approvals → analytics, **scripted verification passing 27/27** (`backend/scripts/e2e_demo.py`)
-- **In progress:** demo experience polish (seeding done; mock AI mode, streaming chat, photo→product, voice briefing planned), automated tests, Firebase Auth, commerce hardening, deployment, real-time updates
-- **Not started:** authentication & security (Milestone 8), automated tests (Milestone 9, committed)
+- **Complete:** automated tests (Milestone 9) — `backend/tests/` (58 pytest tests, isolated temp SQLite DB + mock AI per test)
+- **In progress:** demo experience polish (seeding done; mock AI mode, streaming chat, photo→product done; voice briefing planned), Firebase Auth, commerce hardening, deployment, real-time updates
+- **Not started:** authentication & security (Milestone 8)
 
 See [`docs/MILESTONES.md`](docs/MILESTONES.md) for the detailed milestone breakdown and [`docs/STATUS_REPORT.md`](docs/STATUS_REPORT.md) for the latest status.
 
