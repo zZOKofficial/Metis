@@ -1,7 +1,10 @@
 ﻿steps:
   # Build backend
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/${PROJECT_ID}/metis-backend:${SHORT_SHA}', '-f', 'deployment/Dockerfile.backend', '.']
+    # Context is ./backend, matching the COPY paths in Dockerfile.backend.
+    # It was '.' (the repo root), so `COPY requirements.txt .` looked for a
+    # file that only exists one directory down and the build never succeeded.
+    args: ['build', '-t', 'gcr.io/${PROJECT_ID}/metis-backend:${SHORT_SHA}', '-f', 'deployment/Dockerfile.backend', './backend']
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', 'gcr.io/${PROJECT_ID}/metis-backend:${SHORT_SHA}']
 

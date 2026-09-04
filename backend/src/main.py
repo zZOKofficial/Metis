@@ -4,9 +4,16 @@ from fastapi.responses import FileResponse
 from pathlib import Path
 from .core.config import settings
 from .core import firebase
+from .core.credentials import configure_google_credentials
+from .services.firestore import backend_name
 from .api.routes import router
 
 STATIC_DIR = Path(__file__).parent / 'static'
+
+# Before anything touches a Google SDK: both of them read credentials from the
+# real process environment, which nothing has populated yet on a host that can
+# only hand us secrets as environment variables.
+configure_google_credentials()
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -57,10 +64,19 @@ def favicon_svg():
 
 @app.get('/health')
 def health_check():
+    '''Liveness plus the two facts a deployment is most likely to get wrong.
+
+    `database` resolves the lazy client rather than reporting what was
+    configured, so a deployment that meant to use Firestore and quietly landed
+    on ephemeral SQLite says so here instead of at the next restart, with the
+    data already gone.
+    '''
     return {
         'status': 'healthy',
         'app': settings.APP_NAME,
         'version': settings.APP_VERSION,
+        'database': backend_name(),
+        'auth_enforced': settings.METIS_AUTH_ENABLED,
     }
 
 

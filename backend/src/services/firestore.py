@@ -118,20 +118,63 @@ def get_db():
 
     Uses Firestore when GOOGLE_CLOUD_PROJECT is configured, otherwise a
     local SQLite database so all data survives restarts.
+
+    Falling back to SQLite is the right answer on a laptop and the wrong one
+    on a hosted deployment, where the container filesystem is discarded on
+    every restart: the app would keep serving, look healthy, and quietly lose
+    every product and order it was given. METIS_REQUIRE_FIRESTORE turns that
+    fallback into a startup failure instead.
     '''
     global _db
     if _db is None:
         if settings.GOOGLE_CLOUD_PROJECT:
             try:
                 from google.cloud import firestore
-                _db = firestore.Client(project=settings.GOOGLE_CLOUD_PROJECT)
+                client = firestore.Client(project=settings.GOOGLE_CLOUD_PROJECT)
+                if settings.METIS_REQUIRE_FIRESTORE:
+                    _verify_firestore(client)
+                _db = client
             except Exception as e:
+                if settings.METIS_REQUIRE_FIRESTORE:
+                    raise RuntimeError(
+                        f'Firestore is unreachable ({e}) and '
+                        f'METIS_REQUIRE_FIRESTORE is set, so falling back to '
+                        f'local SQLite would silently discard all data on the '
+                        f'next restart. Check GOOGLE_CLOUD_PROJECT and the '
+                        f'service-account credentials.'
+                    ) from e
                 print(f'WARNING: Firestore client failed to initialize ({e}); switching to local SQLite database.')
                 _db = SqliteDB(_default_db_path())
+        elif settings.METIS_REQUIRE_FIRESTORE:
+            raise RuntimeError(
+                'METIS_REQUIRE_FIRESTORE is set but GOOGLE_CLOUD_PROJECT is '
+                'blank, so there is no Firestore to require.'
+            )
         else:
             print('INFO: GOOGLE_CLOUD_PROJECT not set; using local SQLite database. Data persists across restarts.')
             _db = SqliteDB(_default_db_path())
     return _db
+
+
+def _verify_firestore(client) -> None:
+    '''Prove the client can actually talk to Firestore.
+
+    `firestore.Client(...)` is lazy -- it constructs happily with absent,
+    expired or wrong credentials and only fails on the first real query. So
+    catching construction errors proves nothing; a deployment with a bad key
+    would still report itself healthy and fail later, one request at a time.
+    One cheap read settles it at startup.
+    '''
+    next(client.collection('businesses').limit(1).stream(), None)
+
+
+def backend_name() -> str:
+    '''Which store is actually serving reads, for /health.
+
+    Resolves the lazy client, so a misconfigured deployment fails the health
+    check rather than the first shopper.
+    '''
+    return 'sqlite' if isinstance(get_db(), SqliteDB) else 'firestore'
 
 
 def generate_id() -> str:

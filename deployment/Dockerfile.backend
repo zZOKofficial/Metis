@@ -14,4 +14,7 @@ ENV PORT=8000
 
 EXPOSE 8000
 
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Shell form so $PORT expands. Cloud Run assigns the port it wants the
+# container to listen on; the previous hardcoded --port 8000 ignored it, so
+# nothing would ever have reached the service.
+CMD ["sh", "-c", "uvicorn src.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

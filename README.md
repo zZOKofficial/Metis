@@ -96,7 +96,7 @@ METIS combines the affordability of software with the accountability of an emplo
 - **AI:** Google Gemini (raw REST `generateContent` with a function-calling loop)
 - **Database:** Cloud Firestore, with a local **SQLite fallback** (`backend/data/metis.db`) — data survives restarts without any cloud setup
 - **Currency:** each business picks one currency at setup (`GET /api/currencies` for the curated list); every price the agents quote and the UI displays follows it. No FX conversion — a business only ever deals in its own currency
-- **Deployment:** Docker + Cloud Build + Cloud Run
+- **Deployment:** Docker — Vercel (frontend) + Hugging Face Spaces (backend); Cloud Build / Cloud Run config retained
 
 ```
 backend/src/
@@ -231,14 +231,56 @@ The frontend talks to the backend via `NEXT_PUBLIC_API_URL` (defaults to `http:/
 
 ## Deployment
 
-Build and deploy with Google Cloud Build / Cloud Run:
+METIS is built to run on free tiers, with no billing account anywhere. Cloud Run is deliberately not the deployment target: enabling it requires an international credit card even to stay inside its free tier. The only Google service used is Firestore on the **Spark** plan, which needs no billing account.
+
+| Piece | Host | Notes |
+|---|---|---|
+| Frontend | Vercel (Hobby) | Root directory `frontend/` |
+| Backend | Hugging Face Space (Docker) | `backend/Dockerfile`, listens on `$PORT` |
+| Database | Firestore (Spark) | Free tier; no card |
+| Auth | Firebase Authentication | Email/password |
+
+### Backend
+
+See [`backend/README.md`](backend/README.md) for the full variable table. The essentials for a hosted deployment:
 
 ```bash
-# Build images
-gcloud builds submit --config deployment/cloudbuild.yaml
+GOOGLE_CLOUD_PROJECT=<firebase-project-id>
+GOOGLE_APPLICATION_CREDENTIALS_JSON=<service-account key, one line>   # secret
+METIS_AUTH_ENABLED=true
+METIS_REQUIRE_FIRESTORE=true
+DEBUG=false
+CORS_ORIGINS=https://<your-app>.vercel.app
 ```
 
-The pipeline builds both images, pushes them to Container Registry, and deploys `metis-backend` and `metis-frontend` to Cloud Run (`us-central1`). Set the backend's `GEMINI_API_KEY` and Firestore credentials as Cloud Run environment variables, and point the frontend at the backend URL via `NEXT_PUBLIC_API_URL`.
+`METIS_REQUIRE_FIRESTORE` matters more than it looks. Without it the app falls back to a local SQLite file whenever Firestore is unreachable — the right behaviour on a laptop, and silently destructive on a container whose filesystem is discarded on restart. `GET /health` reports which database is actually serving and whether auth is being enforced, so a misconfigured deploy is one request away from admitting it.
+
+Deploy the Firestore composite indexes once, before going live:
+
+```bash
+firebase deploy --only firestore:indexes    # deployment/firestore.indexes.json
+```
+
+### Frontend
+
+Every `NEXT_PUBLIC_*` value is inlined at build time, so set them in Vercel **before** the first build; changing one later needs a redeploy.
+
+```bash
+NEXT_PUBLIC_API_URL=https://<space-host>/api
+NEXT_PUBLIC_FIREBASE_API_KEY=...
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=...
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=...
+```
+
+All three Firebase values must be present or the frontend deploys with authentication disabled. Add the Vercel domain to Firebase Auth's authorised domains, and to the backend's `CORS_ORIGINS`.
+
+### Cloud Run
+
+`deployment/cloudbuild.yaml` remains for anyone who can enable billing:
+
+```bash
+gcloud builds submit --config deployment/cloudbuild.yaml
+```
 
 ---
 
@@ -246,9 +288,10 @@ The pipeline builds both images, pushes them to Container Registry, and deploys 
 
 - **Complete (Milestones 0-4, 6):** core backend, agent framework, all 6 agents, REST API, all frontend pages
 - **Complete (Milestone 7, ~95%):** E2E demo workflow — business setup → catalog → storefront customer chat → orders → approvals → analytics, **scripted verification passing 27/27** (`backend/scripts/e2e_demo.py`)
-- **Complete:** automated tests (Milestone 9) — `backend/tests/` (69 pytest tests, isolated temp SQLite DB + mock AI per test); Phase 1B demo-experience polish (seeding, mock AI mode, streaming chat, photo→product, voice briefing)
-- **In progress:** commerce hardening, deployment, real-time updates
-- **Deprioritized (hackathon scope):** authentication & security (Milestone 8) — not required for this project
+- **Complete:** automated tests (Milestone 9) — `backend/tests/` (137 pytest tests, isolated temp SQLite DB + mock AI per test, no network or API keys required); Phase 1B demo-experience polish (seeding, mock AI mode, streaming chat, photo→product, voice briefing)
+- **Complete (Milestone 8):** authentication & multi-tenant access — Firebase email/password sign-in, per-business ownership enforced on all 28 owner routes, query push-down so one shop's listing no longer reads every other shop's documents. Off by default, so local development is unchanged
+- **In progress (Milestone 10):** deployment — the container, credentials and safety guards are in place; the public URLs are not up yet
+- **Open:** commerce hardening, real-time updates, per-owner Gemini keys, staff roles
 
 See [`docs/MILESTONES.md`](docs/MILESTONES.md) for the detailed milestone breakdown and [`docs/STATUS_REPORT.md`](docs/STATUS_REPORT.md) for the latest status.
 
