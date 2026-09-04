@@ -2,7 +2,7 @@ import './globals.css';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'METIS — Your Business. Operated by AI.',
+  title: 'METIS — Think. Act. Grow.',
   description: 'An AI workforce of specialized agents that runs sales, support, marketing, operations and analytics for small businesses.',
 };
 

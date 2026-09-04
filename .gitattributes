@@ -1,14 +1,21 @@
-# Set the default behavior, in case people don't have core.autocrlf set.
-* text=auto
+# Normalize every text file to LF in the repository, and check it out as LF
+# on every platform. `eol=lf` overrides a contributor's core.autocrlf, so a
+# Windows clone no longer reports "LF will be replaced by CRLF".
+* text=auto eol=lf
 
-# Explicitly declare text files you want to always be normalized and converted
-# to native line endings on checkout.
-*.c text
-*.h text
+# Binary assets — never touch the bytes.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.webp  binary
+*.ico   binary
+*.pdf   binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.otf   binary
+*.zip   binary
 
-# Declare files that will always have CRLF line endings on checkout.
-*.sln text eol=crlf
-
-# Denote all files that are truly binary and should not be modified.
-*.png binary
-*.jpg binary
+# Generated lockfiles: collapsed on GitHub, still a normal text diff locally.
+package-lock.json  linguist-generated

@@ -11,11 +11,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <BusinessProvider>
       <div className='min-h-screen bg-ink lg:flex'>
-        <div className='hidden lg:block lg:static fixed inset-y-0 left-0 z-40'>
+        <div className='no-print hidden lg:block lg:static fixed inset-y-0 left-0 z-40'>
           <Sidebar />
         </div>
 
-        <div className={`lg:hidden fixed inset-0 z-50 transition-opacity ${railOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
+        <div className={`no-print lg:hidden fixed inset-0 z-50 transition-opacity ${railOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
           <button
             aria-label='Close menu'
             className='absolute inset-0 bg-ink/60'

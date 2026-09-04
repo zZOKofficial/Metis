@@ -48,6 +48,6 @@ def root():
     return {
         'name': 'METIS API',
         'version': settings.APP_VERSION,
-        'description': 'Your Business. Operated by AI.',
+        'description': 'Think. Act. Grow.',
         'docs': '/docs',
     }

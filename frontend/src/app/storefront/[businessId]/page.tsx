@@ -419,10 +419,13 @@ export default function StorefrontPage() {
       <footer className='bg-ink text-card/50 border-t border-white/10'>
         <div className='mx-auto max-w-5xl w-full px-4 sm:px-8 py-4 flex items-center justify-between gap-3 flex-wrap'>
           <p className='font-mono text-[10px] uppercase tracking-[0.2em]'>
-            Μῆτις · your business, operated by AI
+            Μῆτις · think. act. grow.
           </p>
           <p className='font-mono text-[10px] uppercase tracking-[0.14em]'>
-            demo storefront · v0.7.2
+            demo storefront · v0.7.4 ·{' '}
+            <a href='https://github.com/zZOKofficial' target='_blank' rel='noopener noreferrer' className='hover:text-card transition-colors'>
+              OxyOrb
+            </a>
           </p>
         </div>
       </footer>

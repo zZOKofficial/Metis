@@ -24,7 +24,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       <div className='px-6 pt-6 pb-5 border-b border-white/10'>
         <p className='font-display text-[26px] font-extrabold leading-none tracking-tight'>METIS</p>
         <p className='font-mono text-[10px] uppercase tracking-[0.24em] text-card/45 mt-2'>
-          Μῆτις · your business, operated by AI
+          Μῆτις · think. act. grow.
         </p>
       </div>
 
@@ -61,7 +61,12 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           <span aria-hidden className='inline-block w-1.5 h-1.5 rounded-full bg-ok blink' />
           <p className='font-mono text-[10px] uppercase tracking-[0.18em] text-card/45'>Workforce on duty</p>
         </div>
-        <p className='font-mono text-[10px] text-card/30 mt-2'>6 specialists · v0.7.2</p>
+        <p className='font-mono text-[10px] text-card/30 mt-2'>
+          6 specialists · v0.7.4 ·{' '}
+          <a href='https://github.com/zZOKofficial' target='_blank' rel='noopener noreferrer' className='hover:text-card/60 transition-colors'>
+            OxyOrb
+          </a>
+        </p>
       </div>
     </aside>
   );

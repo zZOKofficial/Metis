@@ -1,4 +1,6 @@
-# METIS — Your Business. Operated by AI.
+# METIS — Think. Act. Grow.
+
+> An **OxyOrb** product · Developed by [Md. Maruf Hossain](https://github.com/zZOKofficial)
 
 **METIS** (Μῆτις — Greek goddess of wisdom, practical intelligence, and cunning strategy) is an **AI-operated business management platform** for small businesses. It is not another chatbot that talks about your business — it is an **AI workforce** of specialized agents that perform real business tasks, collaborate with each other, use your real data and tools, and produce measurable business outcomes.
 

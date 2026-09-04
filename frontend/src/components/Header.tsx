@@ -15,7 +15,7 @@ export default function Header({ onMenu }: { onMenu: () => void }) {
   };
 
   return (
-    <header className='bg-ink text-card border-b border-white/10 lg:h-[52px] h-auto'>
+    <header className='no-print bg-ink text-card border-b border-white/10 lg:h-[52px] h-auto'>
       <div className='flex items-center justify-between gap-3 px-4 sm:px-8 lg:px-12 py-2.5'>
         <div className='flex items-center gap-3 min-w-0'>
           <button

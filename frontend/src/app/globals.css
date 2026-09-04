@@ -1,4 +1,4 @@
-﻿@tailwind base;
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -396,10 +396,11 @@
   }
 }
 
-/* Print: only the memo shows, plain paper, nothing but ink */
+/* Print: the memo becomes the page — full bleed, app chrome gone, ink intact */
 @media print {
   @page {
-    margin: 14mm;
+    size: A4;
+    margin: 12mm 12mm 14mm;
   }
 
   html,
@@ -407,23 +408,54 @@
     background: #fff !important;
   }
 
-  aside,
-  header {
+  /* Browsers drop backgrounds and tinted ink by default; the memo needs both. */
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* App chrome — rail, top bar, action buttons — never reaches paper. */
+  .no-print,
+  .no-print * {
     display: none !important;
   }
 
+  /* Unwind the scroll shell so the sheet can flow across pages. */
   .lg\:flex,
   .lg\:h-screen,
   main {
+    display: block !important;
     overflow: visible !important;
     height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
   }
 
+  /* The desk is furniture, not paper: drop its rules, tint and padding so the
+     sheet aligns to the physical page margin instead of double-indenting. */
   .desk {
     background: #fff !important;
     background-image: none !important;
+    padding: 0 !important;
   }
 
+  .sheet {
+    max-width: none !important;
+    width: 100% !important;
+    margin: 0 !important;
+  }
+
+  /* On paper the offset shadow reads as a smudge; the rule alone carries it. */
+  .ledger,
+  .ledger--flat {
+    background: #fff !important;
+    box-shadow: none !important;
+    border-color: var(--ink) !important;
+  }
+
+  .avoid-break,
   tr {
     break-inside: avoid;
     page-break-inside: avoid;
@@ -431,5 +463,14 @@
 
   thead {
     display: table-header-group;
+  }
+
+  tfoot {
+    display: table-footer-group;
+  }
+
+  a {
+    text-decoration: none;
+    color: inherit;
   }
 }
