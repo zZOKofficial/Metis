@@ -23,6 +23,11 @@ node_modules/
 dist/
 build/
 
+# Ad-hoc local test reports / screenshots (not part of the committed test suite)
+docs/tests/
+docs/TEST_REPORT.md
+frontend/docs/
+
 # IDE
 .vscode/
 .idea/
