@@ -57,14 +57,8 @@
         { "fieldPath": "business_id", "order": "ASCENDING" },
         { "fieldPath": "session_id", "order": "ASCENDING" }
       ]
-    },
-    {
-      "collectionGroup": "businesses",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "owner_uid", "order": "ASCENDING" }
-      ]
     }
   ],
+  "//businesses": "GET /api/businesses filters on owner_uid alone. That needs no entry here: Firestore indexes every single field automatically, and declaring one as a composite index is rejected outright -- 'this index is not necessary, configure using single field index controls' -- which fails the whole deploy, not just that entry.",
   "fieldOverrides": []
 }
