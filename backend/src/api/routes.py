@@ -33,6 +33,8 @@ from ..core.auth import (
     require_business_access,
     get_business_or_404,
     get_current_uid,
+    require_user,
+    list_owned_businesses,
     strip_protected_fields,
 )
 
@@ -50,11 +52,17 @@ def list_currencies():
 # === Business ===
 
 @router.post('/business', response_model=dict)
-def create_business(data: BusinessCreate, uid: Optional[str] = Depends(get_current_uid)):
+def create_business(data: BusinessCreate, uid: Optional[str] = Depends(require_user)):
     payload = data.model_dump()
     payload['owner_uid'] = uid or ''
     business_id = business_service.create(payload)
     return {'id': business_id, 'message': 'Business created successfully.'}
+
+
+@router.get('/businesses')
+def list_businesses(uid: Optional[str] = Depends(get_current_uid)):
+    '''The caller's own businesses -- the source of truth the frontend restores from.'''
+    return list_owned_businesses(uid)
 
 
 @router.get('/business/{business_id}')
@@ -71,7 +79,7 @@ def update_business(business_id: str, data: dict, _business: dict = Depends(requ
 # === Demo ===
 
 @router.post('/demo/seed')
-def seed_demo(uid: Optional[str] = Depends(get_current_uid)):
+def seed_demo(uid: Optional[str] = Depends(require_user)):
     from ..services.demo import seed_demo_business
     business = seed_demo_business(owner_uid=uid or '')
     return {

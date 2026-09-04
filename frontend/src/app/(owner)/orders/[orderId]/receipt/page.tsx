@@ -281,7 +281,7 @@ export default function OrderReceiptPage() {
       )}
 
       <p className='font-mono text-[10px] uppercase tracking-[0.18em] text-ink-faint mt-6 text-center leading-relaxed'>
-        Μῆτις · think. act. grow. · v0.7.5 · an OxyOrb product
+        Μῆτις · think. act. grow. · v0.7.6 · an OxyOrb product
         <br />
         Memo #{docket(order.id)} · issued {issued || '—'}
       </p>
