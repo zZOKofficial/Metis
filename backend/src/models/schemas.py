@@ -82,6 +82,10 @@ class BusinessCreate(BusinessBase):
 
 class Business(BusinessBase):
     id: str
+    # Set from the authenticated caller at creation time, never from the
+    # request body. Empty on businesses created before auth existed, which
+    # require_business_access treats as unowned.
+    owner_uid: str = ""
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

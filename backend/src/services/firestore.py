@@ -1,5 +1,7 @@
 ﻿import json
+import operator
 import os
+import re
 import sqlite3
 import threading
 import uuid
@@ -41,6 +43,67 @@ def _load(raw: str) -> dict:
         return _revive(json.loads(raw))
     except (json.JSONDecodeError, TypeError):
         return {}
+
+
+# --- Query filters -----------------------------------------------------------
+# Filters are (field, op, value) triples. Whenever the backing store can
+# evaluate one itself we push it down; anything left over is applied in Python
+# by _matches(). Pushing down matters most on Firestore, where an unfiltered
+# stream() reads (and bills for) every document in the collection, including
+# every other tenant's.
+
+_PUSHDOWN_OPS = {'==': '=', '>': '>', '<': '<', '>=': '>=', '<=': '<='}
+
+# '!=' is deliberately unsupported: SQLite and Firestore both exclude documents
+# where the field is absent, while a naive Python comparison would include them.
+_COMPARATORS = {
+    '==': operator.eq,
+    '>': operator.gt,
+    '<': operator.lt,
+    '>=': operator.ge,
+    '<=': operator.le,
+}
+
+# Field names are interpolated into a JSON path, so only allow plain identifiers.
+_FIELD_RE = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
+
+
+def _can_push(field: str, op: str, value: Any) -> bool:
+    '''True when the store can evaluate this filter natively.
+
+    Only scalars are pushed down: datetimes are stored as {__dt__: ...} wrappers
+    and would not compare correctly inside the store.
+    '''
+    return (
+        op in _PUSHDOWN_OPS
+        and isinstance(field, str)
+        and _FIELD_RE.match(field) is not None
+        and isinstance(value, (str, int, float, bool))
+    )
+
+
+def _matches(data: dict, filters: list[tuple]) -> bool:
+    '''Evaluate filters in Python, matching how the stores behave.
+
+    A missing field satisfies no comparison, which is what both SQLite (NULL
+    propagates through the comparison) and Firestore (absent fields are not
+    returned) already do. An unknown operator raises rather than being skipped
+    -- a filter that silently matches everything is how one tenant ends up
+    seeing another tenant's rows.
+    '''
+    for field, op, value in filters:
+        compare = _COMPARATORS.get(op)
+        if compare is None:
+            raise ValueError(f'unsupported filter operator: {op!r}')
+        field_val = data.get(field)
+        if field_val is None:
+            return False
+        try:
+            if not compare(field_val, value):
+                return False
+        except TypeError:
+            return False  # mismatched types never match
+    return True
 
 
 def _default_db_path() -> str:
@@ -106,9 +169,11 @@ class CollectionRef:
     def document(self, doc_id: str):
         return DocumentRef(self._data, doc_id)
 
-    def stream(self):
+    def stream(self, filters: Optional[list[tuple]] = None):
         results = []
         for doc_id, doc_data in self._data.items():
+            if filters and not _matches(doc_data, filters):
+                continue
             results.append(FakeDoc(doc_id, doc_data))
         return iter(results)
 
@@ -164,6 +229,12 @@ class SqliteDB:
                     'data TEXT NOT NULL, '
                     'PRIMARY KEY (collection, doc_id))'
                 )
+                # Every list query filters on business_id; without this the
+                # json_extract predicate degrades to a per-collection scan.
+                conn.execute(
+                    'CREATE INDEX IF NOT EXISTS idx_metis_store_business '
+                    "ON metis_store (collection, json_extract(data, '$.business_id'))"
+                )
                 conn.commit()
             finally:
                 conn.close()
@@ -180,14 +251,20 @@ class SqliteCollectionRef:
     def document(self, doc_id: str):
         return SqliteDocumentRef(self._db, self._name, doc_id)
 
-    def stream(self):
+    def stream(self, filters: Optional[list[tuple]] = None):
+        sql = 'SELECT doc_id, data FROM metis_store WHERE collection = ?'
+        params: list[Any] = [self._name]
+        for field, op, value in (filters or []):
+            # Guarded by _can_push before it reaches here; assert the invariant
+            # rather than risk interpolating an arbitrary field into the path.
+            if not _can_push(field, op, value):
+                raise ValueError(f'filter not pushable to SQLite: {field!r} {op!r}')
+            sql += f" AND json_extract(data, '$.{field}') {_PUSHDOWN_OPS[op]} ?"
+            params.append(value)
         with self._db._lock:
             conn = self._db._connect()
             try:
-                rows = conn.execute(
-                    'SELECT doc_id, data FROM metis_store WHERE collection = ?',
-                    (self._name,),
-                ).fetchall()
+                rows = conn.execute(sql, params).fetchall()
             finally:
                 conn.close()
         results = []
@@ -287,27 +364,49 @@ class FirestoreService:
         self.db.collection(self.collection).document(doc_id).delete()
         return True
 
+    def _stream(self, filters: list[tuple]):
+        '''Stream the collection with as many filters applied by the store as possible.'''
+        coll = self.db.collection(self.collection)
+
+        # Local backends take the filters directly.
+        if isinstance(coll, (CollectionRef, SqliteCollectionRef)):
+            return coll.stream(filters)
+
+        # Real Firestore CollectionReference.
+        if not filters:
+            return coll.stream()
+        from google.cloud.firestore_v1.base_query import FieldFilter
+        query = coll
+        for field, op, value in filters:
+            query = query.where(filter=FieldFilter(field, op, value))
+        try:
+            # Materialised inside the try: Firestore reports a missing index
+            # lazily, on first iteration, not when stream() is called.
+            return list(query.stream())
+        except Exception as e:
+            # Firestore raises FailedPrecondition (with a link to create the
+            # index) for compound queries it has no composite index for. Keep
+            # serving rather than 500ing, but make the cost loudly visible.
+            print(
+                f'WARNING: MISSING FIRESTORE INDEX for {self.collection} '
+                f'{filters} ({e}); falling back to a full collection scan. '
+                f'Add the index to deployment/firestore.indexes.json.'
+            )
+            return coll.stream()
+
     def list_all(self, filters: Optional[list[tuple]] = None) -> list[dict]:
-        docs = self.db.collection(self.collection).stream()
+        filters = list(filters or [])
+        pushable: list[tuple] = []
+        residual: list[tuple] = []
+        for f in filters:
+            (pushable if _can_push(*f) else residual).append(f)
+
         results = []
-        for doc in docs:
+        for doc in self._stream(pushable):
             data = doc.to_dict()
             data['id'] = doc.id
-            if filters:
-                match = True
-                for field, op, value in filters:
-                    field_val = data.get(field)
-                    if op == '==' and field_val != value:
-                        match = False
-                        break
-                    elif op == '>' and (field_val is None or field_val <= value):
-                        match = False
-                        break
-                    elif op == '<' and (field_val is None or field_val >= value):
-                        match = False
-                        break
-                if not match:
-                    continue
+            if residual and not _matches(data, residual):
+                continue
             results.append(data)
         return results
 
