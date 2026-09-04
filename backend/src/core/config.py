@@ -18,7 +18,7 @@ class Settings(BaseSettings):
 
     # Application
     APP_NAME: str = 'METIS'
-    APP_VERSION: str = '0.7.4'
+    APP_VERSION: str = '0.7.5'
     DEBUG: bool = True
     CORS_ORIGINS: list[str] = ['http://localhost:3000', 'http://localhost:8000']
 
@@ -30,6 +30,10 @@ class Settings(BaseSettings):
 
     # Demo mode: answer agent chats deterministically without a Gemini key
     METIS_MOCK_AI: bool = False
+
+    # Enforce business ownership on owner-facing routes. Off until an identity
+    # provider is wired up (Milestone 8); required before hosting the API.
+    METIS_AUTH_ENABLED: bool = False
 
 
 settings = Settings()

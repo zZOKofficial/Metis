@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Business } from '@/types';
+import { businessExists } from '@/lib/api';
 
 interface BusinessContextType {
   currentBusiness: Business | null;
@@ -17,15 +18,32 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const saved = localStorage.getItem('metis_business');
-    if (saved) {
-      try {
-        const business = JSON.parse(saved);
-        setCurrentBusiness(business);
-        setBusinessId(business.id);
-      } catch {
-        localStorage.removeItem('metis_business');
-      }
+    if (!saved) return;
+
+    let business: Business;
+    try {
+      business = JSON.parse(saved);
+    } catch {
+      localStorage.removeItem('metis_business');
+      return;
     }
+
+    setCurrentBusiness(business);
+    setBusinessId(business.id);
+
+    // The cached business can outlive the backend it was created against.
+    // Drop it if the backend no longer knows it, so the user lands on the
+    // Setup Wizard instead of a wall of 404s.
+    let cancelled = false;
+    businessExists(business.id).then((exists) => {
+      if (cancelled || exists) return;
+      localStorage.removeItem('metis_business');
+      setCurrentBusiness(null);
+      setBusinessId('');
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const clearBusiness = () => {

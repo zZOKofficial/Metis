@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, HTTPException, File, UploadFile
+﻿from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
 from fastapi.responses import StreamingResponse
 from typing import Optional
 from datetime import datetime
@@ -29,6 +29,12 @@ from ..services.firestore import (
     app_state_service,
 )
 from ..core.currency import currency_symbol
+from ..core.auth import (
+    require_business_access,
+    get_business_or_404,
+    get_current_uid,
+    strip_protected_fields,
+)
 
 router = APIRouter()
 
@@ -44,31 +50,30 @@ def list_currencies():
 # === Business ===
 
 @router.post('/business', response_model=dict)
-def create_business(data: BusinessCreate):
-    business_id = business_service.create(data.model_dump())
+def create_business(data: BusinessCreate, uid: Optional[str] = Depends(get_current_uid)):
+    payload = data.model_dump()
+    payload['owner_uid'] = uid or ''
+    business_id = business_service.create(payload)
     return {'id': business_id, 'message': 'Business created successfully.'}
 
 
 @router.get('/business/{business_id}')
-def get_business(business_id: str):
-    business = business_service.get(business_id)
-    if not business:
-        raise HTTPException(status_code=404, detail='Business not found.')
+def get_business(business_id: str, business: dict = Depends(require_business_access)):
     return business
 
 
 @router.put('/business/{business_id}')
-def update_business(business_id: str, data: dict):
-    business_service.update(business_id, data)
+def update_business(business_id: str, data: dict, _business: dict = Depends(require_business_access)):
+    business_service.update(business_id, strip_protected_fields(data))
     return {'message': 'Business updated.'}
 
 
 # === Demo ===
 
 @router.post('/demo/seed')
-def seed_demo():
+def seed_demo(uid: Optional[str] = Depends(get_current_uid)):
     from ..services.demo import seed_demo_business
-    business = seed_demo_business()
+    business = seed_demo_business(owner_uid=uid or '')
     return {
         'business_id': business['id'],
         'business': business,
@@ -97,7 +102,7 @@ def _get_owned_product(business_id: str, product_id: str) -> dict:
 
 
 @router.post('/products/{business_id}')
-def create_product(business_id: str, data: ProductCreate):
+def create_product(business_id: str, data: ProductCreate, _business: dict = Depends(require_business_access)):
     product_data = data.model_dump()
     product_key = (product_data.get('product_key') or '').strip()
     if _product_key_taken(business_id, product_key):
@@ -109,7 +114,7 @@ def create_product(business_id: str, data: ProductCreate):
 
 
 @router.post('/products/{business_id}/from-photo')
-async def draft_product_from_photo(business_id: str, file: UploadFile = File(...)):
+async def draft_product_from_photo(business_id: str, file: UploadFile = File(...), _business: dict = Depends(require_business_access)):
     from ..services.gemini import gemini_service
     image_bytes = await file.read()
     if not image_bytes:
@@ -119,7 +124,7 @@ async def draft_product_from_photo(business_id: str, file: UploadFile = File(...
 
 
 @router.get('/products/{business_id}')
-def list_products(business_id: str, category: str = '', in_stock: bool = False):
+def list_products(business_id: str, category: str = '', in_stock: bool = False, _business: dict = Depends(require_business_access)):
     filters = [('business_id', '==', business_id)]
     if category:
         filters.append(('category', '==', category))
@@ -129,12 +134,12 @@ def list_products(business_id: str, category: str = '', in_stock: bool = False):
 
 
 @router.get('/products/{business_id}/{product_id}')
-def get_product(business_id: str, product_id: str):
+def get_product(business_id: str, product_id: str, _business: dict = Depends(require_business_access)):
     return _get_owned_product(business_id, product_id)
 
 
 @router.put('/products/{business_id}/{product_id}')
-def update_product(business_id: str, product_id: str, data: dict):
+def update_product(business_id: str, product_id: str, data: dict, _business: dict = Depends(require_business_access)):
     _get_owned_product(business_id, product_id)
     if 'product_key' in data:
         product_key = (data.get('product_key') or '').strip()
@@ -146,7 +151,7 @@ def update_product(business_id: str, product_id: str, data: dict):
 
 
 @router.delete('/products/{business_id}/{product_id}')
-def delete_product(business_id: str, product_id: str):
+def delete_product(business_id: str, product_id: str, _business: dict = Depends(require_business_access)):
     _get_owned_product(business_id, product_id)
     product_service.delete(product_id)
     return {'message': 'Product deleted.'}
@@ -155,7 +160,7 @@ def delete_product(business_id: str, product_id: str):
 # === Customers ===
 
 @router.post('/customers/{business_id}')
-def create_customer(business_id: str, data: CustomerCreate):
+def create_customer(business_id: str, data: CustomerCreate, _business: dict = Depends(require_business_access)):
     customer_data = data.model_dump()
     customer_data['business_id'] = business_id
     customer_id = customer_service.create(customer_data)
@@ -163,12 +168,12 @@ def create_customer(business_id: str, data: CustomerCreate):
 
 
 @router.get('/customers/{business_id}')
-def list_customers(business_id: str):
+def list_customers(business_id: str, _business: dict = Depends(require_business_access)):
     return customer_service.list_all([('business_id', '==', business_id)])
 
 
 @router.get('/customers/{business_id}/{customer_id}')
-def get_customer(business_id: str, customer_id: str):
+def get_customer(business_id: str, customer_id: str, _business: dict = Depends(require_business_access)):
     customer = customer_service.get(customer_id)
     if not customer or customer.get('business_id') != business_id:
         raise HTTPException(status_code=404, detail='Customer not found.')
@@ -178,7 +183,7 @@ def get_customer(business_id: str, customer_id: str):
 # === Orders ===
 
 @router.post('/orders/{business_id}')
-def create_order(business_id: str, data: OrderCreate):
+def create_order(business_id: str, data: OrderCreate, _business: dict = Depends(require_business_access)):
     from ..agents.registry import get_agent
     sales_agent = get_agent(AgentType.SALES, business_id)
     result = sales_agent.create_order(
@@ -191,7 +196,7 @@ def create_order(business_id: str, data: OrderCreate):
 
 
 @router.get('/orders/{business_id}')
-def list_orders(business_id: str, status: str = ''):
+def list_orders(business_id: str, status: str = '', _business: dict = Depends(require_business_access)):
     filters = [('business_id', '==', business_id)]
     if status:
         filters.append(('status', '==', status))
@@ -199,7 +204,7 @@ def list_orders(business_id: str, status: str = ''):
 
 
 @router.get('/orders/{business_id}/{order_id}')
-def get_order(business_id: str, order_id: str):
+def get_order(business_id: str, order_id: str, _business: dict = Depends(require_business_access)):
     order = order_service.get(order_id)
     if not order or order.get('business_id') != business_id:
         raise HTTPException(status_code=404, detail='Order not found.')
@@ -207,7 +212,7 @@ def get_order(business_id: str, order_id: str):
 
 
 @router.put('/orders/{business_id}/{order_id}/status')
-def update_order_status(business_id: str, order_id: str, status: str):
+def update_order_status(business_id: str, order_id: str, status: str, _business: dict = Depends(require_business_access)):
     from ..agents.registry import get_agent
     operations_agent = get_agent(AgentType.OPERATIONS, business_id)
     try:
@@ -223,7 +228,7 @@ def update_order_status(business_id: str, order_id: str, status: str):
 # === Agents ===
 
 @router.get('/agents/{business_id}')
-def get_agent_status(business_id: str):
+def get_agent_status(business_id: str, _business: dict = Depends(require_business_access)):
     agents = []
     for agent_type in AgentType:
         from ..agents.registry import get_agent
@@ -242,7 +247,7 @@ def get_agent_status(business_id: str):
 
 
 @router.get('/agents/{business_id}/activity')
-def get_agent_activity(business_id: str, agent_type: str = '', limit: int = 50):
+def get_agent_activity(business_id: str, agent_type: str = '', limit: int = 50, _business: dict = Depends(require_business_access)):
     filters = [('business_id', '==', business_id)]
     if agent_type:
         filters.append(('agent_type', '==', agent_type))
@@ -251,7 +256,7 @@ def get_agent_activity(business_id: str, agent_type: str = '', limit: int = 50):
 
 
 @router.get('/agents/{business_id}/briefing')
-def get_voice_briefing(business_id: str):
+def get_voice_briefing(business_id: str, _business: dict = Depends(require_business_access)):
     '''A short spoken-style summary of the business, for the Dashboard's voice briefing button.'''
     from ..agents.registry import get_agent
     manager = get_agent(AgentType.MANAGER, business_id)
@@ -315,7 +320,7 @@ def _sorted_chat_history(business_id: str) -> list[dict]:
 
 
 @router.get('/chat/{business_id}/history')
-def get_chat_history(business_id: str, limit: int = 100):
+def get_chat_history(business_id: str, limit: int = 100, _business: dict = Depends(require_business_access)):
     return _sorted_chat_history(business_id)[-limit:]
 
 
@@ -491,12 +496,12 @@ After the tools run, summarize concisely what you did or what is awaiting approv
 
 
 @router.post('/chat/{business_id}', response_model=ChatResponse)
-def chat_with_manager(business_id: str, data: ChatRequest):
+def chat_with_manager(business_id: str, data: ChatRequest, _business: dict = Depends(require_business_access)):
     return _process_manager_turn(business_id, data)
 
 
 @router.post('/chat/{business_id}/stream')
-def chat_with_manager_stream(business_id: str, data: ChatRequest):
+def chat_with_manager_stream(business_id: str, data: ChatRequest, _business: dict = Depends(require_business_access)):
     response = _process_manager_turn(business_id, data)
     return StreamingResponse(_sse_stream(response), media_type='text/event-stream')
 
@@ -518,7 +523,7 @@ def _sorted_storefront_history(business_id: str, session_id: str) -> list[dict]:
 
 
 @router.get('/storefront/{business_id}/history')
-def get_storefront_history(business_id: str, session_id: str = '', limit: int = 100):
+def get_storefront_history(business_id: str, session_id: str = '', limit: int = 100, _business: dict = Depends(get_business_or_404)):
     if not session_id:
         raise HTTPException(status_code=400, detail='session_id is required.')
     return _sorted_storefront_history(business_id, session_id)[-limit:]
@@ -670,12 +675,12 @@ Be a helpful, honest shop assistant:
 
 
 @router.post('/storefront/{business_id}/chat', response_model=ChatResponse)
-def storefront_chat(business_id: str, data: StorefrontChatRequest):
+def storefront_chat(business_id: str, data: StorefrontChatRequest, _business: dict = Depends(get_business_or_404)):
     return _process_storefront_turn(business_id, data)
 
 
 @router.post('/storefront/{business_id}/chat/stream')
-def storefront_chat_stream(business_id: str, data: StorefrontChatRequest):
+def storefront_chat_stream(business_id: str, data: StorefrontChatRequest, _business: dict = Depends(get_business_or_404)):
     response = _process_storefront_turn(business_id, data)
     return StreamingResponse(_sse_stream(response), media_type='text/event-stream')
 
@@ -683,7 +688,7 @@ def storefront_chat_stream(business_id: str, data: StorefrontChatRequest):
 # === Approvals ===
 
 @router.get('/approvals/{business_id}')
-def list_approvals(business_id: str, status: str = 'pending'):
+def list_approvals(business_id: str, status: str = 'pending', _business: dict = Depends(require_business_access)):
     filters = [('business_id', '==', business_id)]
     if status:
         filters.append(('status', '==', status))
@@ -691,7 +696,7 @@ def list_approvals(business_id: str, status: str = 'pending'):
 
 
 @router.post('/approvals/{business_id}/{approval_id}/approve')
-def approve_action(business_id: str, approval_id: str):
+def approve_action(business_id: str, approval_id: str, _business: dict = Depends(require_business_access)):
     approval = approval_service.get(approval_id)
     if not approval or approval.get('business_id') != business_id:
         raise HTTPException(status_code=404, detail='Approval not found.')
@@ -722,7 +727,7 @@ def approve_action(business_id: str, approval_id: str):
 
 
 @router.post('/approvals/{business_id}/{approval_id}/reject')
-def reject_action(business_id: str, approval_id: str):
+def reject_action(business_id: str, approval_id: str, _business: dict = Depends(require_business_access)):
     approval = approval_service.get(approval_id)
     if not approval or approval.get('business_id') != business_id:
         raise HTTPException(status_code=404, detail='Approval not found.')
@@ -739,7 +744,7 @@ def reject_action(business_id: str, approval_id: str):
 # === Analytics ===
 
 @router.get('/analytics/{business_id}/dashboard')
-def get_dashboard(business_id: str):
+def get_dashboard(business_id: str, _business: dict = Depends(require_business_access)):
     from ..agents.registry import get_agent
     analytics = get_agent(AgentType.ANALYTICS, business_id)
     metrics = analytics.get_dashboard_metrics()
@@ -748,21 +753,21 @@ def get_dashboard(business_id: str):
 
 
 @router.get('/analytics/{business_id}/revenue')
-def get_revenue(business_id: str, period: str = 'all'):
+def get_revenue(business_id: str, period: str = 'all', _business: dict = Depends(require_business_access)):
     from ..agents.registry import get_agent
     analytics = get_agent(AgentType.ANALYTICS, business_id)
     return analytics.get_revenue(period)
 
 
 @router.get('/analytics/{business_id}/top-products')
-def get_top_products(business_id: str, limit: int = 5):
+def get_top_products(business_id: str, limit: int = 5, _business: dict = Depends(require_business_access)):
     from ..agents.registry import get_agent
     analytics = get_agent(AgentType.ANALYTICS, business_id)
     return analytics.get_top_products(limit)
 
 
 @router.get('/analytics/{business_id}/low-stock')
-def get_low_stock(business_id: str):
+def get_low_stock(business_id: str, _business: dict = Depends(require_business_access)):
     from ..agents.registry import get_agent
     analytics = get_agent(AgentType.ANALYTICS, business_id)
     return analytics.get_low_stock_products()

@@ -62,7 +62,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           <p className='font-mono text-[10px] uppercase tracking-[0.18em] text-card/45'>Workforce on duty</p>
         </div>
         <p className='font-mono text-[10px] text-card/30 mt-2'>
-          6 specialists · v0.7.4 ·{' '}
+          6 specialists · v0.7.5 ·{' '}
           <a href='https://github.com/zZOKofficial' target='_blank' rel='noopener noreferrer' className='hover:text-card/60 transition-colors'>
             OxyOrb
           </a>

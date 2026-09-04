@@ -2,7 +2,7 @@
 
 > Build a company, not a science project.
 
-**Last Updated:** 2026-09-04 (METIS 0.7.4)
+**Last Updated:** 2026-09-04 (METIS 0.7.5)
 
 ---
 
@@ -15,7 +15,7 @@
 **Goal:** FastAPI app running with Firestore, basic CRUD for business entities
 
 - [x] FastAPI application with CORS, middleware — `backend/src/main.py`
-- [x] Firestore integration (google-cloud-firestore) with local SQLite fallback — `backend/src/services/firestore.py` *(2026-08-12 (0.3.0): InMemoryDB replaced with a persistent local `SqliteDB` (`backend/data/metis.db`) — all data now survives restarts without Google Cloud)*
+- [x] Firestore integration (google-cloud-firestore) with local SQLite fallback — `backend/src/services/firestore.py` *(0.7.5: `list_all()` no longer streams the whole collection and filters in Python — filters are pushed into the query (`FieldFilter` on Firestore, a `json_extract` WHERE clause on SQLite, backed by a new `idx_metis_store_business` expression index). Listing one shop's products previously read every other tenant's documents, which on Firestore is billed per document read. Composite indexes for the compound queries are declared in `deployment/firestore.indexes.json`; a missing one logs `MISSING FIRESTORE INDEX` and falls back to a scan rather than 500ing. `>=`/`<=` are now supported and an unrecognised operator raises instead of being silently skipped — a filter that quietly matches everything is how one tenant sees another's rows.)* *(2026-08-12 (0.3.0): InMemoryDB replaced with a persistent local `SqliteDB` (`backend/data/metis.db`) — all data now survives restarts without Google Cloud)*
 - [x] Gemini/Vertex AI integration (google-genai) — `backend/src/services/gemini.py`
 - [x] Data models: Business, Product, Customer, Order, AgentLog, Approval, ChatMessage — `backend/src/models/schemas.py` *(0.4.1: `Product` gained `product_key` — optional SKU-style identifier, unique per business; 0.7.1: `Business` gained `currency` (default `BDT`), a code from the curated list in `backend/src/core/currency.py`)*
 - [x] Chat message persistence (`chat_messages` collection) — `backend/src/services/firestore.py` (`chat_service`)
@@ -125,16 +125,17 @@
 
 > **0.3.0 (2026-08-12):** The chat prompt now shows full product/customer/order IDs (they were truncated to 8 chars, which led Gemini to stage approvals with invalid references); `create_order`/`create_campaign` resolve references by ID, prefix, or name (case-insensitive, fuzzy fallback for e.g. `prod_batmobile` → `Bat-Mobile`). Approval Center alerts surface the backend's actual execution error. Local persistence switched from in-memory to SQLite (`backend/data/metis.db`).
 
-## Milestone 8: Auth & Security ❌
+## Milestone 8: Auth & Security ⚠️ (access control in place, identity pending)
 **Goal:** Production-ready security
 
 - [ ] Firebase Authentication integration
-- [ ] Route protection (middleware)
+- [x] Route protection — `require_business_access` guards all 28 owner routes; the 3 storefront routes use the existence-only `get_business_or_404` — `backend/src/core/auth.py` *(0.7.5)*
+- [x] Business ownership model — `Business.owner_uid`, stamped from the authenticated caller at create/seed time, never from the request body *(0.7.5)*
 - [ ] Role-based access (owner vs agent)
-- [ ] Input validation on all endpoints
-- [ ] API key protection
+- [x] Input validation — `PUT /api/business/{id}` took an unvalidated `dict`; protected fields (`id`, `owner_uid`, `created_at`) are now stripped *(0.7.5)*
+- [ ] API key protection — the Gemini key is still a single global `app_state/ai_config` document plus a process-wide singleton cache; must become per-owner before the backend is shared
 
-> **NOT STARTED:** All API endpoints are completely open. No login page, no user management, no route protection.
+> **0.7.5 (2026-09-04):** The enforcement layer landed ahead of the identity provider. `backend/src/core/auth.py` adds `require_business_access`, a single dependency applied to every business-scoped owner route: it loads the business (so an unknown id is a clean 404 instead of an empty list or a blind write) and, when `METIS_AUTH_ENABLED` is on, rejects a caller who does not own it — as 404 rather than 403, so someone else's business id is never confirmed to exist. Identity is the remaining half: once an auth dependency sets `request.state.uid`, `get_current_uid` picks it up and enforcement begins with no route changing again. Businesses created before this field exists have an empty `owner_uid` and stay reachable, so there is no migration. Frontend: `BusinessContext` now revalidates the `metis_business` it restores from `localStorage` against `GET /api/business/{id}` and clears it on 404, so a cached business that outlived its database sends the user to the Setup Wizard instead of a wall of 404s.
 
 ## Milestone 9: Testing ✅ (committed suite)
 **Goal:** Reliable, tested system
@@ -150,6 +151,8 @@
 > **0.7.0 (2026-09-04):** Milestone 9 gets a committed pytest suite — `backend/tests/` (58 tests, `pytest.ini` at the backend root). `conftest.py` gives every test a fresh temp SQLite DB (each `FirestoreService` singleton's cached `_db` handle is reset alongside the module-level one) and mock AI mode on (`METIS_MOCK_AI=1`), so the whole suite runs with no Gemini key and never touches `backend/data/metis.db`. Covers business/product/customer/order CRUD, `product_key` 409, cross-business 404 ownership guards, order booking/release/reapply on status transitions, revenue recognition, the approval stage → approve/reject → execute pipeline (incl. the execution-failure → `FAILED` path), the full `PERMISSION_MATRIX`, mock-AI chat tool dispatch (restock/set-stock/mark-out-of-stock/add-product/delete-product/move-order-status), and demo seeding. Found and fixed a real bug along the way: `GET /analytics/{business_id}/revenue` silently ignored the documented `period` (`today`/`7d`/`30d`) query param — the route never accepted it, so it always behaved like `all`; `backend/src/api/routes.py` now passes it through. `backend/scripts/e2e_demo.py` (27/27, incl. live-Gemini flows) remains as-is for manual/live-key verification.
 
 > **0.7.1 (2026-09-04):** Per-business currency selection. `Business.currency` (default `BDT`) is picked once in the Setup Wizard (step 1, alongside category) from a curated 18-currency list (`backend/src/core/currency.py`, served at `GET /api/currencies`); no FX conversion — a business only ever deals in its own currency. Replaced ~20 places across the backend that hardcoded the Taka symbol (`৳`) in agent prompts, chat summaries, and API routes with `BaseAgent.get_currency_symbol()` / `currency_symbol(business.get('currency'))`, and the frontend's shared `<Cash>` money component (`frontend/src/components/ui.tsx`) now takes an explicit `currency` prop resolved via `frontend/src/lib/currency.ts`, threaded through all 6 of its call sites plus the product-form price label. A business created before this field existed reads back as `BDT` — the pre-existing default — with no migration needed. Added `backend/tests/test_currency.py`.
+
+> **0.7.5 (2026-09-04):** Suite grows to 103 tests. `backend/tests/test_query_pushdown.py` pins filter semantics (tenant isolation, `>` excluding zero and missing fields, datetimes falling back to Python, unknown operators raising) and asserts via `EXPLAIN QUERY PLAN` that the business filter is an index seek rather than a scan. `backend/tests/test_business_access.py` covers the access layer in both modes: with auth off, every owner route 404s an unknown business and `PUT /business` no longer conjures one; with auth on, a second user gets 404 across business/products/orders/analytics/chat, the owner keeps full access, the storefront stays open to anonymous shoppers, and pre-auth businesses without an `owner_uid` are not locked out.
 
 > **0.7.2 (2026-09-04):** Voice briefing — the last planned Phase 1B item. `GET /api/agents/{business_id}/briefing` returns `ManagerAgent.produce_summary()`'s text; the Dashboard's new "🔊 Voice briefing" button (in the "From the manager's desk" panel) fetches it and reads it aloud with the browser's built-in `SpeechSynthesis` API — no server-side TTS, no new dependency, no API cost. `produce_summary()` now branches on `METIS_MOCK_AI`: in mock mode it builds the sentence directly from the already-computed metrics (revenue, order/customer/product counts, low-stock names) instead of calling Gemini, so the briefing reads real numbers even with no Gemini key configured — this matters because the feature is meant to work reliably in a live demo. Browser-verified end to end with Playwright (demo store → click briefing → correct numbers spoken, no console errors). Added `backend/tests/test_voice_briefing.py`.
 

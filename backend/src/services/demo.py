@@ -46,12 +46,12 @@ DEMO_ORDERS = [
 ]
 
 
-def seed_demo_business() -> dict:
+def seed_demo_business(owner_uid: str = '') -> dict:
     """Create a demo business with products, customers and orders.
 
     Returns the stored business document (with id).
     """
-    business_id = business_service.create(dict(DEMO_BUSINESS))
+    business_id = business_service.create({**DEMO_BUSINESS, 'owner_uid': owner_uid})
     business = business_service.get(business_id)
     business['id'] = business_id
 
