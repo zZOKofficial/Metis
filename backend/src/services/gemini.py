@@ -291,7 +291,7 @@ class GeminiService:
         if tool is None:
             m = re.search(
                 r'\b(?:add|create)\s+(?:a\s+)?(?:new\s+)?product\s+(?:called\s+|named\s+)?"?([^",]+?)"?\s+'
-                r'(?:for|at|priced at|priced|price)\s+৳?\$?(\d+(?:\.\d+)?)',
+                r'(?:for|at|priced at|priced|price)\s+(?:[^\d\s]{1,4}\s*)?(\d+(?:\.\d+)?)',
                 text,
                 re.IGNORECASE,
             )

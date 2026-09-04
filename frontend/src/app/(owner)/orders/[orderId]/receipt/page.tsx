@@ -117,8 +117,8 @@ export default function OrderReceiptPage() {
               <tr key={i} className='print:break-inside-avoid'>
                 <td className='py-2.5 pr-3'>{item.product_name}</td>
                 <td className='py-2.5 px-3 text-right tabular'>{item.quantity}</td>
-                <td className='py-2.5 px-3 text-right tabular'><Cash value={item.unit_price} /></td>
-                <td className='py-2.5 pl-3 text-right tabular font-medium'><Cash value={item.total_price} /></td>
+                <td className='py-2.5 px-3 text-right tabular'><Cash value={item.unit_price} currency={business?.currency} /></td>
+                <td className='py-2.5 pl-3 text-right tabular font-medium'><Cash value={item.total_price} currency={business?.currency} /></td>
               </tr>
             )) || (
               <tr>
@@ -130,7 +130,7 @@ export default function OrderReceiptPage() {
 
         <footer className='dashed-print mt-6 pt-4 flex items-baseline justify-end gap-3'>
           <span className='kicker'>Total payable</span>
-          <Cash value={order.total_amount} className='font-mono text-2xl font-semibold' />
+          <Cash value={order.total_amount} currency={business?.currency} className='font-mono text-2xl font-semibold' />
         </footer>
       </div>
 
@@ -149,7 +149,7 @@ export default function OrderReceiptPage() {
       )}
 
       <p className='font-mono text-[10px] uppercase tracking-[0.18em] text-ink-faint mt-6 text-center print:mt-4'>
-        Μῆτις · your business, operated by AI · v0.7.0
+        Μῆτις · your business, operated by AI · v0.7.1
       </p>
 
       <div className='mt-6 mb-10 flex justify-center gap-3 print:hidden'>

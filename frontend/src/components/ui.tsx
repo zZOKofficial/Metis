@@ -1,5 +1,7 @@
 'use client';
 
+import { getCurrencySymbol } from '@/lib/currency';
+
 export const AGENT_ORDER = ['manager', 'sales', 'support', 'marketing', 'operations', 'analytics'] as const;
 
 export const AGENT_LABEL: Record<string, string> = {
@@ -101,10 +103,10 @@ export function StatusTicket({ status }: { status: string }) {
   return <span className={`ticket ${tone}`}>{status}</span>;
 }
 
-export function Cash({ value, className = '' }: { value: number; className?: string }) {
+export function Cash({ value, currency, className = '' }: { value: number; currency?: string | null; className?: string }) {
   return (
     <span className={`tabular ${className}`}>
-      ৳{Math.round(value).toLocaleString()}
+      {getCurrencySymbol(currency)}{Math.round(value).toLocaleString()}
     </span>
   );
 }

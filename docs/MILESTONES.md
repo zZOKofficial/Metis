@@ -2,7 +2,7 @@
 
 > Build a company, not a science project.
 
-**Last Updated:** 2026-09-04 (METIS 0.7.0)
+**Last Updated:** 2026-09-04 (METIS 0.7.1)
 
 ---
 
@@ -17,7 +17,7 @@
 - [x] FastAPI application with CORS, middleware — `backend/src/main.py`
 - [x] Firestore integration (google-cloud-firestore) with local SQLite fallback — `backend/src/services/firestore.py` *(2026-08-12 (0.3.0): InMemoryDB replaced with a persistent local `SqliteDB` (`backend/data/metis.db`) — all data now survives restarts without Google Cloud)*
 - [x] Gemini/Vertex AI integration (google-genai) — `backend/src/services/gemini.py`
-- [x] Data models: Business, Product, Customer, Order, AgentLog, Approval, ChatMessage — `backend/src/models/schemas.py` *(0.4.1: `Product` gained `product_key` — optional SKU-style identifier, unique per business)*
+- [x] Data models: Business, Product, Customer, Order, AgentLog, Approval, ChatMessage — `backend/src/models/schemas.py` *(0.4.1: `Product` gained `product_key` — optional SKU-style identifier, unique per business; 0.7.1: `Business` gained `currency` (default `BDT`), a code from the curated list in `backend/src/core/currency.py`)*
 - [x] Chat message persistence (`chat_messages` collection) — `backend/src/services/firestore.py` (`chat_service`)
 - [x] Pydantic schemas for validation — `backend/src/models/schemas.py`
 - [x] Environment configuration (.env) — `backend/src/core/config.py` *(0.3.0: `APP_VERSION` bumped to 0.3.0 in both config and `.env`; 0.4.1: bumped to 0.4.1, incl. the `.env` pin that overrides `config.py`; 0.4.3: bumped to 0.4.3; 0.5.0: bumped to 0.5.0; 0.6.0: bumped to 0.6.0, adds `METIS_MOCK_AI` flag)*
@@ -64,6 +64,7 @@
 - [x] `POST /api/products/{business_id}/from-photo` — drafts a product (name, description, price, category) from an uploaded photo via Gemini vision; returns a best-effort JSON draft for the owner to review, not a saved product *(0.6.0)*
 - [x] `/api/approvals` — list, approve, reject *(2026-08-12: failed executions now mark the approval `failed` (`ApprovalStatus.FAILED`) instead of `approved`, returning the execution error. **0.3.0:** the owner's approve/reject no longer 400s on truncated/hallucinated IDs — staged actions resolve references before executing; the chat prompt now shows full product/customer/order IDs so the model stops inventing them)*
 - [x] `/api/analytics` — dashboard metrics
+- [x] `GET /api/currencies` — curated currency list (code/symbol/name) for the Setup Wizard's picker *(0.7.1)*
 
 ## Milestone 5: Frontend Foundation ⚠️
 **Goal:** Next.js app with routing, layout, API client
@@ -146,6 +147,8 @@
 - [x] Error handling tests — 404/409/400 paths across products, customers, orders, approvals
 
 > **0.7.0 (2026-09-04):** Milestone 9 gets a committed pytest suite — `backend/tests/` (58 tests, `pytest.ini` at the backend root). `conftest.py` gives every test a fresh temp SQLite DB (each `FirestoreService` singleton's cached `_db` handle is reset alongside the module-level one) and mock AI mode on (`METIS_MOCK_AI=1`), so the whole suite runs with no Gemini key and never touches `backend/data/metis.db`. Covers business/product/customer/order CRUD, `product_key` 409, cross-business 404 ownership guards, order booking/release/reapply on status transitions, revenue recognition, the approval stage → approve/reject → execute pipeline (incl. the execution-failure → `FAILED` path), the full `PERMISSION_MATRIX`, mock-AI chat tool dispatch (restock/set-stock/mark-out-of-stock/add-product/delete-product/move-order-status), and demo seeding. Found and fixed a real bug along the way: `GET /analytics/{business_id}/revenue` silently ignored the documented `period` (`today`/`7d`/`30d`) query param — the route never accepted it, so it always behaved like `all`; `backend/src/api/routes.py` now passes it through. `backend/scripts/e2e_demo.py` (27/27, incl. live-Gemini flows) remains as-is for manual/live-key verification.
+
+> **0.7.1 (2026-09-04):** Per-business currency selection. `Business.currency` (default `BDT`) is picked once in the Setup Wizard (step 1, alongside category) from a curated 18-currency list (`backend/src/core/currency.py`, served at `GET /api/currencies`); no FX conversion — a business only ever deals in its own currency. Replaced ~20 places across the backend that hardcoded the Taka symbol (`৳`) in agent prompts, chat summaries, and API routes with `BaseAgent.get_currency_symbol()` / `currency_symbol(business.get('currency'))`, and the frontend's shared `<Cash>` money component (`frontend/src/components/ui.tsx`) now takes an explicit `currency` prop resolved via `frontend/src/lib/currency.ts`, threaded through all 6 of its call sites plus the product-form price label. A business created before this field existed reads back as `BDT` — the pre-existing default — with no migration needed. Added `backend/tests/test_currency.py`.
 
 ## Milestone 10: Deployment ⚠️
 **Goal:** Live on Google Cloud

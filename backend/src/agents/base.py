@@ -8,8 +8,9 @@ from ..models.schemas import (
     AgentResponse,
     AgentLog,
 )
-from ..services.firestore import agent_log_service
+from ..services.firestore import agent_log_service, business_service
 from ..services.gemini import gemini_service
+from ..core.currency import currency_symbol
 
 
 # === Permission System ===
@@ -109,6 +110,11 @@ class BaseAgent(ABC):
     def agent_name(self) -> str:
         """Human-readable agent name."""
         ...
+
+    def get_currency_symbol(self) -> str:
+        """This business's chosen currency symbol, for prompts and summaries."""
+        business = business_service.get(self.business_id) or {}
+        return currency_symbol(business.get('currency', ''))
 
     def register_tool(self, name: str, func: callable):
         """Register a tool the agent can use."""

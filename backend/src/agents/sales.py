@@ -262,7 +262,7 @@ Respond with ONLY a JSON array of product IDs, like: ["id1", "id2", "id3"]"""
                 "total": total_amount,
                 "items": len(order_items),
             },
-            result=f"Order created: ৳{total_amount:,.2f}",
+            result=f"Order created: {self.get_currency_symbol()}{total_amount:,.2f}",
         )
 
         return {
@@ -300,11 +300,12 @@ Important: Only mention products from the list above. Use their exact names and 
         if not products:
             return "No products available."
 
+        currency = self.get_currency_symbol()
         lines = []
         for p in products:
             lines.append(
                 f"- ID: {p['id']} | {p['name']} | "
-                f"৳{p['price']:,.2f} | Stock: {p.get('stock', 0)} | "
+                f"{currency}{p['price']:,.2f} | Stock: {p.get('stock', 0)} | "
                 f"Category: {p.get('category', 'N/A')}"
             )
         return "\n".join(lines)

@@ -67,7 +67,7 @@ Policies:
 {chr(10).join(f"- {k}: {v}" for k, v in policies.items()) if policies else "No specific policies listed."}
 
 Available Products (for reference):
-{chr(10).join(f"- {p['name']}: ৳{p['price']:,.2f}" for p in products[:10])}
+{chr(10).join(f"- {p['name']}: {self.get_currency_symbol()}{p['price']:,.2f}" for p in products[:10])}
 
 Rules:
 1. Only use the information provided above

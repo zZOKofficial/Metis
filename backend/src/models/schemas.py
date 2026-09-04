@@ -71,6 +71,7 @@ class BusinessBase(BaseModel):
     contact_email: str = ""
     phone: str = ""
     operating_hours: str = ""
+    currency: str = "BDT"
     policies: dict[str, str] = Field(default_factory=dict)
     goals: list[str] = Field(default_factory=list)
 

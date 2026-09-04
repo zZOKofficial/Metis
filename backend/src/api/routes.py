@@ -28,8 +28,17 @@ from ..services.firestore import (
     storefront_chat_service,
     app_state_service,
 )
+from ..core.currency import currency_symbol
 
 router = APIRouter()
+
+
+# === Currencies ===
+
+@router.get('/currencies')
+def list_currencies():
+    from ..core.currency import CURRENCIES, DEFAULT_CURRENCY
+    return {'currencies': CURRENCIES, 'default': DEFAULT_CURRENCY}
 
 
 # === Business ===
@@ -362,13 +371,14 @@ def _process_manager_turn(business_id: str, data: ChatRequest) -> ChatResponse:
     customers = context.get('customers') or []
     total_revenue = sum(float(o.get('total_amount') or 0) for o in orders if o.get('status') in REVENUE_STATUSES)
     low_stock = [p for p in products if p.get('stock', 0) <= 5]
+    currency = currency_symbol(business.get('currency', ''))
 
     recent_orders = '\n'.join(
-        f'  - Order {str(o.get("id", ""))}: ৳{float(o.get("total_amount") or 0):,.2f} ({o.get("status", "unknown")})'
+        f'  - Order {str(o.get("id", ""))}: {currency}{float(o.get("total_amount") or 0):,.2f} ({o.get("status", "unknown")})'
         for o in orders[:5]
     )
     product_list = '\n'.join(
-        f'  - {p.get("name", "Unknown")}: ৳{float(p.get("price") or 0):,.2f} (ID: {str(p.get("id", ""))}, Stock: {p.get("stock", 0)})'
+        f'  - {p.get("name", "Unknown")}: {currency}{float(p.get("price") or 0):,.2f} (ID: {str(p.get("id", ""))}, Stock: {p.get("stock", 0)})'
         for p in products[:10]
     )
     customer_list = '\n'.join(
@@ -379,7 +389,7 @@ def _process_manager_turn(business_id: str, data: ChatRequest) -> ChatResponse:
     prompt = f'''You are the Manager Agent for {business.get('name', 'this business')}.
 
 Current Business Status:
-- Revenue: ৳{total_revenue:,.2f}
+- Revenue: {currency}{total_revenue:,.2f}
 - Orders: {len(orders)}
 - Customers: {len(customers)}
 - Products: {len(products)}
@@ -552,8 +562,9 @@ def _process_storefront_turn(business_id: str, data: StorefrontChatRequest) -> C
     history = _sorted_storefront_history(business_id, session_id)[-STOREFRONT_CONTEXT_TURNS:-1]
 
     products = product_service.list_all([('business_id', '==', business_id)])
+    currency = currency_symbol(business.get('currency', ''))
     product_list = '\n'.join(
-        f'  - {p.get("name", "Unknown")}: ৳{float(p.get("price") or 0):,.2f} (ID: {str(p.get("id", ""))}, Stock: {p.get("stock", 0)})'
+        f'  - {p.get("name", "Unknown")}: {currency}{float(p.get("price") or 0):,.2f} (ID: {str(p.get("id", ""))}, Stock: {p.get("stock", 0)})'
         for p in products[:12]
     )
 

@@ -157,6 +157,7 @@ Communication style: Professional, direct, helpful."""
 
         total_revenue = sum(float(o.get("total_amount") or 0) for o in orders if o.get("status") in REVENUE_STATUSES)
         low_stock = [p for p in products if p.get("stock", 0) <= 5]
+        currency = self.get_currency_symbol()
 
         prompt = f"""Based on the following business data, produce a concise summary for the business owner.
 
@@ -164,7 +165,7 @@ Business: {business.get('name', 'Unknown')}
 Category: {business.get('category', 'N/A')}
 
 Key Metrics:
-- Total Revenue: ৳{total_revenue:,.2f}
+- Total Revenue: {currency}{total_revenue:,.2f}
 - Total Orders: {len(orders)}
 - Total Customers: {len(customers)}
 - Total Products: {len(products)}
@@ -173,7 +174,7 @@ Low Stock Products ({len(low_stock)}):
 {chr(10).join(f"  - {p['name']}: {p['stock']} remaining" for p in low_stock[:5])}
 
 Recent Orders:
-{chr(10).join(f"  - Order {o['id']}: ৳{o['total_amount']:,.2f} ({o['status']})" for o in orders[:5])}
+{chr(10).join(f"  - Order {o['id']}: {currency}{o['total_amount']:,.2f} ({o['status']})" for o in orders[:5])}
 
 Provide a 3-4 sentence summary with one actionable recommendation."""
 

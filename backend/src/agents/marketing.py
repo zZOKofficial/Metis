@@ -58,9 +58,10 @@ Communication style: Creative, enthusiastic, practical."""
                     "suggested_discount": "10-15%",
                 })
 
+        currency = self.get_currency_symbol()
         prompt = f"""Analyze these products for promotion opportunities:
 
-{chr(10).join(f"- {p['name']}: ৳{p['price']:,.2f}, Stock: {p.get('stock', 0)}, Category: {p.get('category', 'N/A')}" for p in products)}
+{chr(10).join(f"- {p['name']}: {currency}{p['price']:,.2f}, Stock: {p.get('stock', 0)}, Category: {p.get('category', 'N/A')}" for p in products)}
 
 Which products would benefit most from a promotional campaign? Consider:
 1. High stock levels
@@ -109,8 +110,9 @@ Provide 2-3 specific promotion ideas with reasoning."""
         if not target_products:
             return {"success": False, "error": "No products found for campaign."}
 
+        currency = self.get_currency_symbol()
         product_info = "\n".join(
-            f"- {p['name']}: ৳{p['price']:,.2f} — {p.get('description', 'No description')}"
+            f"- {p['name']}: {currency}{p['price']:,.2f} — {p.get('description', 'No description')}"
             for p in target_products
         )
 
@@ -172,7 +174,7 @@ Format the response clearly with sections."""
             matching = [p for p in products if product_name.lower() in p.get("name", "").lower()]
             if matching:
                 p = matching[0]
-                product_context = f"Product: {p['name']}, Price: ৳{p['price']:,.2f}, Description: {p.get('description', '')}"
+                product_context = f"Product: {p['name']}, Price: {self.get_currency_symbol()}{p['price']:,.2f}, Description: {p.get('description', '')}"
 
         prompt = f"""Write a social media post for our business.
 

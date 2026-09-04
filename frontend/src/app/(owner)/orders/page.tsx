@@ -18,7 +18,7 @@ const STATUS_TONE: Record<string, string> = {
 };
 
 export default function OrdersPage() {
-  const { businessId } = useBusiness();
+  const { businessId, currentBusiness } = useBusiness();
   const [orders, setOrders] = useState<Order[]>([]);
   const [customerNames, setCustomerNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -127,10 +127,10 @@ export default function OrdersPage() {
                       <td className='py-2.5 pr-3'>{item.product_name}</td>
                       <td className='py-2.5 px-3 text-right tabular hidden sm:table-cell'>{item.quantity}</td>
                       <td className='py-2.5 px-3 text-right tabular hidden sm:table-cell'>
-                        <Cash value={item.unit_price} />
+                        <Cash value={item.unit_price} currency={currentBusiness?.currency} />
                       </td>
                       <td className='py-2.5 pl-3 text-right tabular font-medium'>
-                        <Cash value={item.total_price} />
+                        <Cash value={item.total_price} currency={currentBusiness?.currency} />
                       </td>
                     </tr>
                   )) || (
@@ -151,7 +151,7 @@ export default function OrdersPage() {
                   ⤓ Memo
                 </a>
                 <span className='kicker'>Total payable</span>
-                <Cash value={order.total_amount} className='font-mono text-2xl font-semibold' />
+                <Cash value={order.total_amount} currency={currentBusiness?.currency} className='font-mono text-2xl font-semibold' />
               </footer>
             </article>
           ))}

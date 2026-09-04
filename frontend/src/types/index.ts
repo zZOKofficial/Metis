@@ -6,9 +6,16 @@ export interface Business {
   contact_email: string;
   phone: string;
   operating_hours: string;
+  currency: string;
   policies: Record<string, string>;
   goals: string[];
   created_at: string;
+}
+
+export interface CurrencyOption {
+  code: string;
+  symbol: string;
+  name: string;
 }
 
 export interface Product {

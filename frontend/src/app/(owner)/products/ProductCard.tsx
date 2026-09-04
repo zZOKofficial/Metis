@@ -13,7 +13,7 @@ interface Props {
 }
 
 export default function ProductCard({ product, onEdit }: Props) {
-  const { businessId } = useBusiness();
+  const { businessId, currentBusiness } = useBusiness();
   const [qty, setQty] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -99,7 +99,7 @@ export default function ProductCard({ product, onEdit }: Props) {
         </button>
       </div>
       <footer className='flex items-baseline justify-between border-t border-[var(--rule)] pt-3 mt-auto'>
-        <Cash value={product.price} className='font-mono text-xl font-semibold' />
+        <Cash value={product.price} currency={currentBusiness?.currency} className='font-mono text-xl font-semibold' />
         <span className='font-mono text-[10px] uppercase tracking-[0.14em] text-ink-faint'>per unit</span>
       </footer>
     </article>

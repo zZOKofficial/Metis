@@ -312,7 +312,7 @@ export default function StorefrontPage() {
                       <div key={p.id} className='border border-[var(--rule)] bg-paper/60 px-4 py-3'>
                         <div className='flex items-start justify-between gap-2'>
                           <p className='font-display text-[15px] font-semibold text-ink truncate'>{p.name}</p>
-                          <Cash value={p.price} className='font-mono text-sm font-semibold text-ink shrink-0' />
+                          <Cash value={p.price} currency={business?.currency} className='font-mono text-sm font-semibold text-ink shrink-0' />
                         </div>
                         <p className='font-mono text-[10px] uppercase tracking-[0.12em] text-ink-faint mt-1 truncate'>
                           {p.category || 'general'} · {p.stock} in stock
@@ -422,7 +422,7 @@ export default function StorefrontPage() {
             Μῆτις · your business, operated by AI
           </p>
           <p className='font-mono text-[10px] uppercase tracking-[0.14em]'>
-            demo storefront · v0.7.0
+            demo storefront · v0.7.1
           </p>
         </div>
       </footer>

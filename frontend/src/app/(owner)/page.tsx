@@ -97,14 +97,14 @@ export default function DashboardPage() {
           <section className='ledger overflow-hidden' aria-label='Headline figures'>
             <p className='kicker px-5 pt-4'>Register · total to date</p>
             <div className='grid grid-cols-2 lg:grid-cols-4 divide-x divide-[var(--rule)] border-t border-[var(--rule)]'>
-              <RegisterFigure label='Revenue' value={<Cash value={metrics?.total_revenue || 0} />} />
+              <RegisterFigure label='Revenue' value={<Cash value={metrics?.total_revenue || 0} currency={currentBusiness?.currency} />} />
               <RegisterFigure label='Orders' value={String(metrics?.total_orders || 0)} />
               <RegisterFigure label='Customers' value={String(metrics?.total_customers || 0)} />
               <RegisterFigure label='Conversion' value={`${metrics?.conversion_rate || 0}%`} />
             </div>
             {metrics && metrics.average_order_value > 0 && (
               <p className='px-5 pb-4 pt-3 font-mono text-[11px] uppercase tracking-[0.14em] text-ink-soft'>
-                Avg. order value · <Cash value={metrics.average_order_value} className='text-ink' />
+                Avg. order value · <Cash value={metrics.average_order_value} currency={currentBusiness?.currency} className='text-ink' />
                 &nbsp;&nbsp;·&nbsp;&nbsp;{metrics.total_orders} order{metrics.total_orders === 1 ? '' : 's'} on the books
               </p>
             )}
@@ -170,7 +170,7 @@ export default function DashboardPage() {
                         </span>
                         <span className='flex-1 text-sm truncate'>{p.name}</span>
                         <span className='font-mono text-xs tabular text-ink-soft'>{p.units_sold} units</span>
-                        <Cash value={p.revenue} className='font-mono text-sm font-semibold w-24 text-right' />
+                        <Cash value={p.revenue} currency={currentBusiness?.currency} className='font-mono text-sm font-semibold w-24 text-right' />
                       </li>
                     ))}
                   </ul>

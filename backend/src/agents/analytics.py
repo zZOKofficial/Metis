@@ -125,17 +125,18 @@ Communication style: Data-driven, precise, insightful.'''
 
     def answer_question(self, question: str) -> str:
         metrics = self.get_dashboard_metrics()
+        currency = self.get_currency_symbol()
         prompt = f'''The business owner asked: "{question}"
 
 Current Business Metrics:
-- Total Revenue: ৳{metrics['total_revenue']:,.2f}
+- Total Revenue: {currency}{metrics['total_revenue']:,.2f}
 - Total Orders: {metrics['total_orders']}
 - Total Customers: {metrics['total_customers']}
 - Conversion Rate: {metrics['conversion_rate']}%
-- Average Order Value: ৳{metrics['average_order_value']:,.2f}
+- Average Order Value: {currency}{metrics['average_order_value']:,.2f}
 
 Top Products:
-{chr(10).join(f'  {i+1}. {p["name"]}: {p["units_sold"]} units, ৳{p["revenue"]:,.2f}' for i, p in enumerate(metrics['top_products']))}
+{chr(10).join(f'  {i+1}. {p["name"]}: {p["units_sold"]} units, {currency}{p["revenue"]:,.2f}' for i, p in enumerate(metrics['top_products']))}
 
 Low Stock:
 {chr(10).join(f'  - {p["name"]}: {p["stock"]} left' for p in metrics['low_stock_products'][:5]) if metrics['low_stock_products'] else '  None'}
@@ -157,7 +158,7 @@ Answer the question using ONLY the data above. Be specific with numbers.'''
             return AgentResponse(success=True, agent=self.agent_type, task=message.task, result=chr(10).join(f'- {r}' for r in recommendations), data={'recommendations': recommendations})
         if 'revenue' in task or 'sales' in task:
             revenue = self.get_revenue()
-            return AgentResponse(success=True, agent=self.agent_type, task=message.task, result=f'Total revenue: ৳{revenue["total_revenue"]:,.2f} from {revenue["order_count"]} orders.', data=revenue)
+            return AgentResponse(success=True, agent=self.agent_type, task=message.task, result=f'Total revenue: {self.get_currency_symbol()}{revenue["total_revenue"]:,.2f} from {revenue["order_count"]} orders.', data=revenue)
         if 'top' in task or 'best' in task or 'popular' in task:
             top = self.get_top_products()
             return AgentResponse(success=True, agent=self.agent_type, task=message.task, result=str(top), data={'top_products': top})

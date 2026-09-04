@@ -93,6 +93,7 @@ METIS combines the affordability of software with the accountability of an emplo
 - **Backend:** Python, FastAPI — modular monolith, one deployable service
 - **AI:** Google Gemini (raw REST `generateContent` with a function-calling loop)
 - **Database:** Cloud Firestore, with a local **SQLite fallback** (`backend/data/metis.db`) — data survives restarts without any cloud setup
+- **Currency:** each business picks one currency at setup (`GET /api/currencies` for the curated list); every price the agents quote and the UI displays follows it. No FX conversion — a business only ever deals in its own currency
 - **Deployment:** Docker + Cloud Build + Cloud Run
 
 ```
@@ -190,6 +191,7 @@ The frontend talks to the backend via `NEXT_PUBLIC_API_URL` (defaults to `http:/
 
 | Method | Path | Description |
 |--------|------|-------------|
+| GET | `/api/currencies` | Curated currency list (code/symbol/name) for the setup picker |
 | POST | `/api/business` | Create business |
 | GET | `/api/business/{business_id}` | Get business |
 | PUT | `/api/business/{business_id}` | Update business |

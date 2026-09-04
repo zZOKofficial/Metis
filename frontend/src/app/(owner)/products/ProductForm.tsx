@@ -5,6 +5,7 @@ import type { ChangeEvent } from 'react';
 import { useBusiness } from '@/lib/BusinessContext';
 import api from '@/lib/api';
 import { notifyDataChanged } from '@/lib/refresh';
+import { getCurrencySymbol } from '@/lib/currency';
 import { Product } from '@/types';
 
 interface DraftValues {
@@ -24,7 +25,7 @@ interface Props {
 const EMPTY = { name: '', description: '', product_key: '', price: '', stock: '', category: '' };
 
 export default function ProductForm({ initial, draft, onDone, onCancel }: Props) {
-  const { businessId } = useBusiness();
+  const { businessId, currentBusiness } = useBusiness();
   const isEdit = Boolean(initial);
   const [form, setForm] = useState(() => {
     if (initial) {
@@ -117,7 +118,7 @@ export default function ProductForm({ initial, draft, onDone, onCancel }: Props)
         </div>
         <div>
           <label className='label mb-1' htmlFor='p-price'>
-            Price (৳) *
+            Price ({getCurrencySymbol(currentBusiness?.currency).trim()}) *
           </label>
           <input id='p-price' className='field tabular' type='number' min='0' step='any' value={form.price} onChange={set('price')} placeholder='0.00' />
         </div>

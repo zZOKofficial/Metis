@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useBusiness } from '@/lib/BusinessContext';
 import api from '@/lib/api';
 import { Stamp } from '@/components/ui';
+import { getCurrencySymbol, DEFAULT_CURRENCY } from '@/lib/currency';
+import { CurrencyOption } from '@/types';
 
 const STEPS = ['Business', 'Contact', 'Verify & launch'] as const;
 
@@ -11,13 +13,21 @@ export default function SetupWizard() {
   const { setCurrentBusiness, setBusinessId } = useBusiness();
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [currencies, setCurrencies] = useState<CurrencyOption[]>([]);
   const [form, setForm] = useState({
     name: '',
     category: 'Clothing',
     description: '',
     contact_email: '',
     phone: '',
+    currency: DEFAULT_CURRENCY,
   });
+
+  useEffect(() => {
+    api.get('/currencies')
+      .then((res) => setCurrencies(res.data.currencies || []))
+      .catch(() => setCurrencies([]));
+  }, []);
 
   const canContinue = step === 0 ? form.name.trim().length > 0 : true;
 
@@ -51,8 +61,10 @@ export default function SetupWizard() {
         description: form.description,
         contact_email: form.contact_email,
         phone: form.phone,
+        currency: form.currency,
       });
 
+      const symbol = getCurrencySymbol(form.currency);
       const business = {
         id: res.data.id,
         name: form.name,
@@ -61,7 +73,8 @@ export default function SetupWizard() {
         contact_email: form.contact_email,
         phone: form.phone,
         operating_hours: '9AM - 9PM',
-        policies: { returns: '7 day return policy', shipping: 'Free delivery over ৳2000' },
+        currency: form.currency,
+        policies: { returns: '7 day return policy', shipping: `Free delivery over ${symbol}2000` },
         goals: ['Increase online sales'],
         created_at: new Date().toISOString(),
       };
@@ -138,6 +151,26 @@ export default function SetupWizard() {
               </select>
             </div>
             <div>
+              <label className='label mb-1' htmlFor='wiz-currency'>
+                Currency
+              </label>
+              <select
+                id='wiz-currency'
+                className='field'
+                value={form.currency}
+                onChange={(e) => setForm({ ...form, currency: e.target.value })}
+              >
+                {(currencies.length ? currencies : [{ code: DEFAULT_CURRENCY, symbol: '৳', name: 'Bangladeshi Taka' }]).map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.code} ({c.symbol}) — {c.name}
+                  </option>
+                ))}
+              </select>
+              <p className='font-mono text-[10px] uppercase tracking-[0.14em] text-ink-faint mt-1.5'>
+                Every price the staff quotes uses this. Fixed at launch — no conversion later.
+              </p>
+            </div>
+            <div>
               <label className='label mb-1' htmlFor='wiz-desc'>
                 Description
               </label>
@@ -208,6 +241,10 @@ export default function SetupWizard() {
                 <div className='flex justify-between gap-4'>
                   <dt className='text-ink-soft uppercase text-[10px] tracking-[0.14em] pt-0.5'>Category</dt>
                   <dd className='text-right'>{form.category}</dd>
+                </div>
+                <div className='flex justify-between gap-4'>
+                  <dt className='text-ink-soft uppercase text-[10px] tracking-[0.14em] pt-0.5'>Currency</dt>
+                  <dd className='text-right'>{form.currency} ({getCurrencySymbol(form.currency).trim()})</dd>
                 </div>
                 <div className='flex justify-between gap-4'>
                   <dt className='text-ink-soft uppercase text-[10px] tracking-[0.14em] pt-0.5'>Email</dt>

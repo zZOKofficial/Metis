@@ -8,7 +8,7 @@ import { Customer } from '@/types';
 import { Docket, LoadingState, EmptyState, Cash } from '@/components/ui';
 
 export default function CustomersPage() {
-  const { businessId } = useBusiness();
+  const { businessId, currentBusiness } = useBusiness();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -123,7 +123,7 @@ export default function CustomersPage() {
               <dl className='mt-4 pt-4 border-t border-[var(--rule)] flex items-baseline justify-between'>
                 <dt className='kicker'>Orders · spent</dt>
                 <dd className='font-mono text-sm font-semibold tabular'>
-                  {customer.total_orders} · <Cash value={customer.total_spent || 0} />
+                  {customer.total_orders} · <Cash value={customer.total_spent || 0} currency={currentBusiness?.currency} />
                 </dd>
               </dl>
             </article>

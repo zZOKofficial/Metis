@@ -16,6 +16,7 @@ DEMO_BUSINESS = {
     'contact_email': 'pool@deadpools-den.example',
     'phone': '+8801700000000',
     'operating_hours': '10AM - 10PM',
+    'currency': 'BDT',
     'policies': {
         'returns': '14-day returns on sealed items',
         'shipping': 'Same-day delivery in Dhaka',
