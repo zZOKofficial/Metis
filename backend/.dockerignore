@@ -1,0 +1,15 @@
+# Secrets and local state must never reach an image that gets pushed to a
+# public Space.
+.env
+.env.local
+data/
+
+# Not needed at runtime.
+tests/
+scripts/
+pytest.ini
+__pycache__/
+*.py[cod]
+.pytest_cache/
+venv/
+.git/

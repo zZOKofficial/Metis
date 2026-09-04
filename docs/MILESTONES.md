@@ -2,7 +2,7 @@
 
 > Build a company, not a science project.
 
-**Last Updated:** 2026-09-04 (METIS 0.7.6)
+**Last Updated:** 2026-09-05 (METIS 0.8.0)
 
 ---
 
@@ -21,7 +21,7 @@
 - [x] Chat message persistence (`chat_messages` collection) — `backend/src/services/firestore.py` (`chat_service`)
 - [x] Pydantic schemas for validation — `backend/src/models/schemas.py`
 - [x] Environment configuration (.env) — `backend/src/core/config.py` *(0.3.0: `APP_VERSION` bumped to 0.3.0 in both config and `.env`; 0.4.1: bumped to 0.4.1, incl. the `.env` pin that overrides `config.py`; 0.4.3: bumped to 0.4.3; 0.5.0: bumped to 0.5.0; 0.6.0: bumped to 0.6.0, adds `METIS_MOCK_AI` flag)*
-- [x] Health check endpoint — `backend/src/main.py` (`/health`)
+- [x] Health check endpoint — `backend/src/main.py` (`/health`) *(0.8.0: also reports `database` (`firestore`/`sqlite`) and `auth_enforced`, resolved from the live client rather than echoed from config, so a deployment that meant to reach Firestore and landed on ephemeral SQLite says so before the restart that would discard the data)*
 
 ## Milestone 2: Agent Framework ✅
 **Goal:** Reusable agent infrastructure with structured communication
@@ -65,9 +65,10 @@
 - [x] `/api/approvals` — list, approve, reject *(2026-08-12: failed executions now mark the approval `failed` (`ApprovalStatus.FAILED`) instead of `approved`, returning the execution error. **0.3.0:** the owner's approve/reject no longer 400s on truncated/hallucinated IDs — staged actions resolve references before executing; the chat prompt now shows full product/customer/order IDs so the model stops inventing them)*
 - [x] `/api/analytics` — dashboard metrics
 - [x] `GET /api/currencies` — curated currency list (code/symbol/name) for the Setup Wizard's picker *(0.7.1)*
+- [x] `GET /api/businesses` — the caller's own shops; the source of truth that replaced `localStorage`. With auth off it returns everything, which is correct for a single-user local install *(0.7.6)*
 - [x] `GET /api/agents/{business_id}/briefing` — Manager Agent's spoken-style business summary for the Dashboard's voice briefing button *(0.7.2)*
 
-## Milestone 5: Frontend Foundation ⚠️
+## Milestone 5: Frontend Foundation ✅
 **Goal:** Next.js app with routing, layout, API client
 
 - [x] Next.js 14 with App Router — `frontend/package.json`, `frontend/next.config.js`
@@ -75,7 +76,7 @@
 - [x] Shared layout with navigation — `frontend/src/app/layout.tsx`, `frontend/src/components/Sidebar.tsx` *(0.3.0: footer now shows `v0.3.0`; 0.4.1: shows `v0.4.1`; 0.4.3: shows `v0.4.3`; 0.5.0: shows `v0.5.0`; 0.6.0: shows `v0.6.0`)*
 - [x] API client — `frontend/src/lib/api.ts` *(configurable via `NEXT_PUBLIC_API_URL`, falls back to `http://localhost:8000/api`; 0.3.0 adds `/models`, `/ai/config`, `/ai/config/clear` for the Gemini key panel)*
 - [x] TypeScript types matching backend models — `frontend/src/types/index.ts`
-- [ ] Authentication context — **Not implemented**
+- [x] Authentication context — `frontend/src/lib/AuthContext.tsx`, mirroring the `BusinessContext` shape; the guard itself lives once in `frontend/src/components/AppShell.tsx` *(0.7.6)*
 
 ## Milestone 6: Frontend Pages ✅
 **Goal:** All key pages functional and polished
@@ -154,6 +155,8 @@
 
 > **0.7.1 (2026-09-04):** Per-business currency selection. `Business.currency` (default `BDT`) is picked once in the Setup Wizard (step 1, alongside category) from a curated 18-currency list (`backend/src/core/currency.py`, served at `GET /api/currencies`); no FX conversion — a business only ever deals in its own currency. Replaced ~20 places across the backend that hardcoded the Taka symbol (`৳`) in agent prompts, chat summaries, and API routes with `BaseAgent.get_currency_symbol()` / `currency_symbol(business.get('currency'))`, and the frontend's shared `<Cash>` money component (`frontend/src/components/ui.tsx`) now takes an explicit `currency` prop resolved via `frontend/src/lib/currency.ts`, threaded through all 6 of its call sites plus the product-form price label. A business created before this field existed reads back as `BDT` — the pre-existing default — with no migration needed. Added `backend/tests/test_currency.py`.
 
+> **0.8.0 (2026-09-05):** Suite grows to 137 tests. `backend/tests/test_deployment_config.py` covers the settings and failure modes that only ever occur on a hosted deployment, with no network and no credentials: both `CORS_ORIGINS` spellings parse (and the lenient sources still honour `Settings(_env_file=None)`, so a developer's local `.env` cannot leak into a test run); an inlined service-account key is validated, written and exported while a genuinely mounted file always wins; a mangled paste fails naming itself rather than surfacing later inside a Google SDK; the SQLite fallback still happens when Firestore is optional and raises without touching SQLite when it is required, including the case where the client constructs successfully and only fails on first read; and `/health` reports the live backend.
+>
 > **0.7.6 (2026-09-04):** Suite grows to 117 tests. `backend/tests/test_auth.py` patches the `verify_token` seam instead of Firebase itself, so the suite still needs no project, credentials or network: it pins that a valid bearer token becomes the owner uid, that every flavour of unusable credential (absent, forged, wrong scheme, malformed) degrades to anonymous rather than erroring, that `POST /business` and `POST /demo/seed` 401 without a caller when enabled but stay open when disabled, and that `GET /api/businesses` scopes to the caller — returning everything on a single-user local install, where there is no identity to filter by.
 
 > **0.7.5 (2026-09-04):** Suite grows to 103 tests. `backend/tests/test_query_pushdown.py` pins filter semantics (tenant isolation, `>` excluding zero and missing fields, datetimes falling back to Python, unknown operators raising) and asserts via `EXPLAIN QUERY PLAN` that the business filter is an index seek rather than a scan. `backend/tests/test_business_access.py` covers the access layer in both modes: with auth off, every owner route 404s an unknown business and `PUT /business` no longer conjures one; with auth on, a second user gets 404 across business/products/orders/analytics/chat, the owner keeps full access, the storefront stays open to anonymous shoppers, and pre-auth businesses without an `owner_uid` are not locked out.
@@ -161,14 +164,22 @@
 > **0.7.2 (2026-09-04):** Voice briefing — the last planned Phase 1B item. `GET /api/agents/{business_id}/briefing` returns `ManagerAgent.produce_summary()`'s text; the Dashboard's new "🔊 Voice briefing" button (in the "From the manager's desk" panel) fetches it and reads it aloud with the browser's built-in `SpeechSynthesis` API — no server-side TTS, no new dependency, no API cost. `produce_summary()` now branches on `METIS_MOCK_AI`: in mock mode it builds the sentence directly from the already-computed metrics (revenue, order/customer/product counts, low-stock names) instead of calling Gemini, so the briefing reads real numbers even with no Gemini key configured — this matters because the feature is meant to work reliably in a live demo. Browser-verified end to end with Playwright (demo store → click briefing → correct numbers spoken, no console errors). Added `backend/tests/test_voice_briefing.py`.
 
 ## Milestone 10: Deployment ⚠️
-**Goal:** Live on Google Cloud
+**Goal:** Live on the internet, on a free tier, with no credit card
 
-- [x] Dockerfile for backend — `deployment/Dockerfile.backend` *(2026-08-12: `CMD` corrected to JSON-array form — single-quoted form previously relied on accidental shell fallback)*
+Google Cloud Run was the original target and is **not reachable for this project**: enabling Cloud Run requires a billing account backed by an international card regardless of the free tier, which is a hard blocker for an independent developer in Bangladesh. The Cloud Run pipeline is kept and its two latent bugs are fixed, but the live deployment goes elsewhere. The one Google service still used is Firestore on the **Spark** plan, which needs no billing account at all.
+
+- [x] Dockerfile for backend — `deployment/Dockerfile.backend` *(2026-08-12: `CMD` corrected to JSON-array form; 0.8.0: back to shell form so `$PORT` actually expands — Cloud Run assigns the port and the hardcoded `--port 8000` ignored it, so nothing would ever have reached the service)*
 - [x] Dockerfile for frontend — `deployment/Dockerfile.frontend` *(2026-08-12: removed `COPY --from=builder /app/public ./public` — no `public/` directory exists, which broke the image build; `CMD` corrected to JSON-array form)*
-- [ ] Cloud Run service configuration
-- [x] Cloud Build configuration — **Fixed 2026-08-12:** image tags corrected (`metis` instead of `metas`, `$PROJECT_ID`/`$SHORT_SHA` substitutions) — `deployment/cloudbuild.yaml`
-- [ ] Environment variable setup
+- [x] Container image for the chosen host — `backend/Dockerfile` + `backend/.dockerignore`, build context `backend/`, unprivileged uid 1000, listens on `$PORT` (7860 default) *(0.8.0)*
+- [x] Cloud Build configuration — **Fixed 2026-08-12:** image tags corrected (`metis` instead of `metas`, `$PROJECT_ID`/`$SHORT_SHA` substitutions); *(0.8.0: build context corrected from `.` to `./backend` — it did not match the `COPY` paths in `Dockerfile.backend`, so the backend image had never built)* — `deployment/cloudbuild.yaml`
+- [x] Environment variable setup — every hosted setting documented in `backend/.env.example` and `backend/README.md`; `CORS_ORIGINS` now accepts the comma-separated spelling a dashboard text box invites *(0.8.0)*
+- [x] Credentials for hosts with no metadata server — `backend/src/core/credentials.py` *(0.8.0)*
+- [x] Deployment-safety guard — `METIS_REQUIRE_FIRESTORE`, plus `/health` reporting the live database and auth mode *(0.8.0)*
+- [ ] Backend running on a public URL (Hugging Face Space)
+- [ ] Frontend running on a public URL (Vercel)
 - [ ] Custom domain (optional)
+
+> **0.8.0 (2026-09-05):** Deployment readiness. Four things stood between the code and a container, three of them silent. **(1)** `deployment/Dockerfile.backend` assumed a build context of `backend/` while `cloudbuild.yaml` passed the repo root, so `COPY requirements.txt .` looked one directory too high and the backend image had never built; both the context and the `$PORT` expansion are fixed, and `backend/Dockerfile` is added for the Space (its own build, unprivileged, `ca-certificates` installed explicitly because gRPC needs a CA bundle and the failure mode otherwise looks like a bad key). **(2)** Neither Google SDK could receive credentials on a host that can only inject secrets as environment variables — `firebase_admin` and `google-cloud-firestore` both resolve Application Default Credentials from the *real* process environment, and `settings.GOOGLE_APPLICATION_CREDENTIALS` had never been read by any code, so setting it in `.env` had always been a no-op. `backend/src/core/credentials.py` closes both gaps at startup: an inlined key is validated, written to a private temp file, and exported, while a genuinely mounted file always wins. **(3)** `get_db()` fell back to SQLite on *any* Firestore failure with only a `print` — correct on a laptop, data-destroying on an ephemeral container, where the app would keep serving, look healthy, and lose every order on the next restart. `METIS_REQUIRE_FIRESTORE` makes that fallback raise instead, and because `firestore.Client(...)` is lazy and constructs happily against expired credentials, the check performs one real read rather than trusting construction. **(4)** `SettingsConfigDict` was being passed `env_delimiter=','`, which is not a pydantic-settings option and was silently ignored; `CORS_ORIGINS` was therefore JSON-only, and the comma-separated value anyone would type into a hosting dashboard raised `SettingsError` during import — a container that dies at boot naming the field but not the reason. Both spellings now parse. `/health` gained `database` and `auth_enforced`, resolved from the live client rather than echoed from config. Tests: 117 → 137.
 
 > **2026-08-12 (bug-fix pass):** Full-sweep bug audit + fixes. Backend: broken Marketing f-string, `POST /orders` contract, failed-approval status, defensive chat prompt data, customer/line-item validation, `execute_staged_action` try/except, Firestore fallback warning, tool-loop exhaustion message, `get_order_status` shape, `get_revenue` period filtering. Frontend: chat history stale-closure fix, `notifyDataChanged()` on Products/Customers. Docs: README code fences + API table. Verified: Python compiles, `tsc --noEmit` clean, app imports OK.
 >
