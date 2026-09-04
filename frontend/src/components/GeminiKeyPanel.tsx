@@ -21,6 +21,9 @@ function dotTone(keySource: AiKeySource, verified: boolean): { color: string; la
   if (keySource === 'env') {
     return { color: WARN_COLOR, label: 'Server default key · active' };
   }
+  if (keySource === 'mock') {
+    return { color: 'var(--ok)', label: 'Mock AI mode · no key needed' };
+  }
   return { color: 'var(--stamp)', label: 'No key · not connected' };
 }
 

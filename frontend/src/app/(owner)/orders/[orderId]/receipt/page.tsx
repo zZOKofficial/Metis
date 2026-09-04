@@ -149,7 +149,7 @@ export default function OrderReceiptPage() {
       )}
 
       <p className='font-mono text-[10px] uppercase tracking-[0.18em] text-ink-faint mt-6 text-center print:mt-4'>
-        Μῆτις · your business, operated by AI · v0.6.0
+        Μῆτις · your business, operated by AI · v0.6.1
       </p>
 
       <div className='mt-6 mb-10 flex justify-center gap-3 print:hidden'>

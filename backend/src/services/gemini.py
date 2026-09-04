@@ -63,11 +63,11 @@ class GeminiService:
         return self._client
 
     def is_configured(self) -> bool:
-        return bool(self._effective_key())
+        return settings.METIS_MOCK_AI or bool(self._effective_key())
 
     def key_source(self) -> Optional[str]:
         if not self._effective_key():
-            return None
+            return 'mock' if settings.METIS_MOCK_AI else None
         return 'user' if self._saved_key else 'env'
 
     @staticmethod

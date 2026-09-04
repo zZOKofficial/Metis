@@ -107,7 +107,7 @@ export interface ModelInfo {
   name: string;
 }
 
-export type AiKeySource = 'user' | 'env' | null;
+export type AiKeySource = 'user' | 'env' | 'mock' | null;
 
 export interface AiConfigStatus {
   models: ModelInfo[];
