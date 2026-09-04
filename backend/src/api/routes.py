@@ -1,6 +1,8 @@
-﻿from fastapi import APIRouter, HTTPException
+﻿from fastapi import APIRouter, HTTPException, File, UploadFile
+from fastapi.responses import StreamingResponse
 from typing import Optional
 from datetime import datetime
+import json
 from ..models.schemas import (
     BusinessCreate,
     ProductCreate,
@@ -95,6 +97,16 @@ def create_product(business_id: str, data: ProductCreate):
     product_data['business_id'] = business_id
     product_id = product_service.create(product_data)
     return {'id': product_id, 'message': 'Product created.'}
+
+
+@router.post('/products/{business_id}/from-photo')
+async def draft_product_from_photo(business_id: str, file: UploadFile = File(...)):
+    from ..services.gemini import gemini_service
+    image_bytes = await file.read()
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail='Uploaded file is empty.')
+    draft = gemini_service.draft_product_from_image(image_bytes, file.content_type or 'image/jpeg')
+    return draft
 
 
 @router.get('/products/{business_id}')
@@ -282,8 +294,29 @@ def get_chat_history(business_id: str, limit: int = 100):
     return _sorted_chat_history(business_id)[-limit:]
 
 
-@router.post('/chat/{business_id}', response_model=ChatResponse)
-def chat_with_manager(business_id: str, data: ChatRequest):
+def _sse_event(payload: dict) -> str:
+    return f'data: {json.dumps(payload, default=str)}\n\n'
+
+
+def _sse_stream(response: ChatResponse):
+    """Replay an already-computed ChatResponse as an SSE stream.
+
+    Chunks `message` word-by-word so the client can render it
+    progressively, then emits a final `done` event carrying the full
+    response (agent_actions, synced history) so the client stays in sync
+    exactly like the non-streaming endpoint.
+    """
+    import time
+
+    words = response.message.split(' ') if response.message else []
+    for i, word in enumerate(words):
+        chunk = word if i == 0 else ' ' + word
+        yield _sse_event({'type': 'delta', 'text': chunk})
+        time.sleep(0.02)
+    yield _sse_event({'type': 'done', 'response': json.loads(response.model_dump_json())})
+
+
+def _process_manager_turn(business_id: str, data: ChatRequest) -> ChatResponse:
     from ..agents.registry import get_agent
     from ..services.actions import TOOL_DECLARATIONS, handle_tool_call
     from ..services.gemini import gemini_service
@@ -388,6 +421,7 @@ After the tools run, summarize concisely what you did or what is awaiting approv
         temperature=0.6,
         history=[{'role': m['role'], 'content': m['content']} for m in history],
         model=model or None,
+        raw_message=data.message,
     )
     response = result.get('text') or ''
 
@@ -430,6 +464,17 @@ After the tools run, summarize concisely what you did or what is awaiting approv
     )
 
 
+@router.post('/chat/{business_id}', response_model=ChatResponse)
+def chat_with_manager(business_id: str, data: ChatRequest):
+    return _process_manager_turn(business_id, data)
+
+
+@router.post('/chat/{business_id}/stream')
+def chat_with_manager_stream(business_id: str, data: ChatRequest):
+    response = _process_manager_turn(business_id, data)
+    return StreamingResponse(_sse_stream(response), media_type='text/event-stream')
+
+
 # === Storefront (public customer chat) ===
 
 MAX_STOREFRONT_HISTORY = 100
@@ -453,8 +498,7 @@ def get_storefront_history(business_id: str, session_id: str = '', limit: int = 
     return _sorted_storefront_history(business_id, session_id)[-limit:]
 
 
-@router.post('/storefront/{business_id}/chat', response_model=ChatResponse)
-def storefront_chat(business_id: str, data: StorefrontChatRequest):
+def _process_storefront_turn(business_id: str, data: StorefrontChatRequest) -> ChatResponse:
     from ..services.actions import (
         STOREFRONT_TOOL_DECLARATIONS,
         handle_storefront_tool_call,
@@ -549,6 +593,7 @@ Be a helpful, honest shop assistant:
         temperature=0.6,
         history=[{'role': m['role'], 'content': m['content']} for m in history],
         model=model or None,
+        raw_message=data.message,
     )
     response = result.get('text') or ''
 
@@ -595,6 +640,17 @@ Be a helpful, honest shop assistant:
             for m in final
         ],
     )
+
+
+@router.post('/storefront/{business_id}/chat', response_model=ChatResponse)
+def storefront_chat(business_id: str, data: StorefrontChatRequest):
+    return _process_storefront_turn(business_id, data)
+
+
+@router.post('/storefront/{business_id}/chat/stream')
+def storefront_chat_stream(business_id: str, data: StorefrontChatRequest):
+    response = _process_storefront_turn(business_id, data)
+    return StreamingResponse(_sse_stream(response), media_type='text/event-stream')
 
 
 # === Approvals ===

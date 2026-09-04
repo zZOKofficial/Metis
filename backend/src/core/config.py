@@ -18,7 +18,7 @@ class Settings(BaseSettings):
 
     # Application
     APP_NAME: str = 'METIS'
-    APP_VERSION: str = '0.5.0'
+    APP_VERSION: str = '0.6.0'
     DEBUG: bool = True
     CORS_ORIGINS: list[str] = ['http://localhost:3000', 'http://localhost:8000']
 
@@ -27,6 +27,9 @@ class Settings(BaseSettings):
 
     # Local storage
     METIS_DB_PATH: str = ''  # override the SQLite path (tests / E2E use a clean copy)
+
+    # Demo mode: answer agent chats deterministically without a Gemini key
+    METIS_MOCK_AI: bool = False
 
 
 settings = Settings()

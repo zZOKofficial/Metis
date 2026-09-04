@@ -1,8 +1,10 @@
+import base64
 import json
+import re
 import httpx
 import google.genai as genai
 from datetime import datetime
-from typing import Optional, Any
+from typing import Optional, Any, Callable
 from ..core.config import settings
 
 # Models with mandatory thinking attach a thought_signature to functionCall
@@ -149,6 +151,7 @@ class GeminiService:
         history: Optional[list[dict[str, Any]]] = None,
         max_rounds: int = 5,
         model: Optional[str] = None,
+        raw_message: Optional[str] = None,
     ) -> dict[str, Any]:
         """Agentic function-calling loop.
 
@@ -163,6 +166,9 @@ class GeminiService:
         version drops `thoughtSignature` when parsing responses, which makes it
         impossible to echo the required signature back on follow-up calls.
         """
+        if settings.METIS_MOCK_AI:
+            return self._mock_run_with_tools(raw_message if raw_message is not None else prompt, on_call)
+
         if not self._effective_key():
             return {"text": "Gemini API key not configured.", "agent_actions": []}
 
@@ -208,6 +214,155 @@ class GeminiService:
         return {
             "text": "I reached the tool-call limit before I could finish. Please ask again or rephrase.",
             "agent_actions": actions,
+        }
+
+    # === Mock AI mode ===
+
+    @staticmethod
+    def _mock_run_with_tools(message: str, on_call: Callable[[str, dict[str, Any]], dict[str, Any]]) -> dict[str, Any]:
+        """Deterministic stand-in for the tool-calling loop, no Gemini key required.
+
+        Recognizes a handful of common owner-chat intents by pattern-matching
+        the raw message (restock / mark out of stock / set stock / add or
+        delete a product / move an order to a status) and dispatches straight
+        to the matching tool via `on_call`, the same callback the real loop
+        uses. Anything else gets a canned help message.
+        """
+        text = (message or '').strip()
+        low = text.lower()
+        tool: Optional[str] = None
+        args: dict[str, Any] = {}
+
+        m = re.search(r'\bmark\s+(.+?)\s+(?:as\s+)?out of stock\b', low)
+        if m:
+            tool, args = 'set_stock', {'product_id': m.group(1).strip(), 'quantity': 0}
+
+        if tool is None:
+            m = re.search(r'\bset\s+(?:the\s+)?stock\s+(?:of|for)\s+(.+?)\s+to\s+(\d+)\b', low)
+            if m:
+                tool, args = 'set_stock', {'product_id': m.group(1).strip(), 'quantity': int(m.group(2))}
+
+        if tool is None:
+            m = re.search(r'\brestock\s+(.+?)\s+(?:by|with)\s+(\d+)\b', low)
+            if m:
+                tool, args = 'restock_product', {'product_id': m.group(1).strip(), 'quantity': int(m.group(2))}
+
+        if tool is None:
+            m = re.search(r'\badd\s+(\d+)\s+(?:units?\s+)?(?:of\s+)?(?:stock\s+)?(?:to|for)\s+(.+)', low)
+            if m:
+                tool, args = 'restock_product', {'product_id': m.group(2).strip(), 'quantity': int(m.group(1))}
+
+        if tool is None:
+            m = re.search(r'\b(?:delete|remove)\s+(?:the\s+)?product\s+(.+)', low)
+            if m:
+                tool, args = 'delete_product', {'product_id': m.group(1).strip().rstrip('.')}
+
+        if tool is None:
+            m = re.search(
+                r'\b(?:add|create)\s+(?:a\s+)?(?:new\s+)?product\s+(?:called\s+|named\s+)?"?([^",]+?)"?\s+'
+                r'(?:for|at|priced at|priced|price)\s+৳?\$?(\d+(?:\.\d+)?)',
+                text,
+                re.IGNORECASE,
+            )
+            if m:
+                tool, args = 'create_product', {'name': m.group(1).strip(), 'price': float(m.group(2))}
+
+        if tool is None:
+            m = re.search(
+                r'\border\s+([a-z0-9\-]{4,})\b.*?\b(pending|confirmed|processing|shipped|delivered|cancelled|returned)\b',
+                low,
+            )
+            if m:
+                tool, args = 'update_order_status', {'order_id': m.group(1), 'status': m.group(2)}
+
+        if tool is None:
+            return {
+                'text': (
+                    'Mock AI mode is on (no Gemini key needed). Try a command like: '
+                    '"restock Blue Shirt by 10", "mark Blue Shirt out of stock", '
+                    '"set stock of Blue Shirt to 5", \'add product "Red Cap" for 450\', '
+                    '"delete product Red Cap", or "move order <id> to shipped".'
+                ),
+                'agent_actions': [],
+            }
+
+        outcome = on_call(tool, args)
+        label = tool.replace('_', ' ')
+        status = outcome.get('status')
+        if status == 'executed':
+            summary = f'Done — {label} completed.'
+        elif status == 'staged':
+            approval_id = str(outcome.get('approval_id') or '')
+            summary = f'Staged for your approval (approval #{approval_id[:8].upper()}).' if approval_id else 'Staged for your approval.'
+        else:
+            summary = f"Couldn't do that — {outcome.get('error', 'unknown error')}."
+
+        return {'text': summary, 'agent_actions': []}
+
+    # === Photo → product draft ===
+
+    _JSON_BLOCK = re.compile(r'\{.*\}', re.DOTALL)
+
+    def draft_product_from_image(self, image_bytes: bytes, mime_type: str = 'image/jpeg') -> dict[str, Any]:
+        """Ask Gemini vision to draft a product listing from a photo.
+
+        Returns a dict with name/description/price/category (price 0 and
+        empty strings on failure — the owner fills in the rest by hand).
+        """
+        if settings.METIS_MOCK_AI:
+            return {
+                'name': 'New product (from photo)',
+                'description': 'Mock AI mode is on — describe this item and set its price by hand.',
+                'price': 0.0,
+                'category': '',
+            }
+
+        if not self._effective_key():
+            return {'name': '', 'description': '', 'price': 0.0, 'category': ''}
+
+        prompt = (
+            'Look at this product photo and draft a catalog listing for it. '
+            'Reply with ONLY a JSON object, no markdown fences, no commentary, '
+            'shaped exactly like: '
+            '{"name": "...", "description": "...", "price": 0, "category": "..."}. '
+            'Keep the description to one short sentence. Estimate a reasonable '
+            'retail price as a plain number (no currency symbol). If unsure, '
+            'use your best guess rather than leaving a field empty.'
+        )
+        body = {
+            'contents': [{
+                'role': 'user',
+                'parts': [
+                    {'text': prompt},
+                    {'inlineData': {'mimeType': mime_type, 'data': base64.b64encode(image_bytes).decode()}},
+                ],
+            }],
+            'generationConfig': {'temperature': 0.2, 'maxOutputTokens': 512},
+        }
+        data = self._post_generate(body)
+        if 'error' in data:
+            return {'name': '', 'description': '', 'price': 0.0, 'category': ''}
+
+        raw_text = self._extract_text_from_parts(self._response_parts(data))
+        match = self._JSON_BLOCK.search(raw_text)
+        if not match:
+            return {'name': '', 'description': '', 'price': 0.0, 'category': ''}
+
+        try:
+            parsed = json.loads(match.group(0))
+        except (json.JSONDecodeError, TypeError):
+            return {'name': '', 'description': '', 'price': 0.0, 'category': ''}
+
+        try:
+            price = float(parsed.get('price') or 0)
+        except (TypeError, ValueError):
+            price = 0.0
+
+        return {
+            'name': str(parsed.get('name') or '').strip(),
+            'description': str(parsed.get('description') or '').strip(),
+            'price': price,
+            'category': str(parsed.get('category') or '').strip(),
         }
 
     # === Raw REST helpers ===

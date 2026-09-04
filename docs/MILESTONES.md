@@ -2,7 +2,7 @@
 
 > Build a company, not a science project.
 
-**Last Updated:** 2026-08-17 (METIS 0.5.0)
+**Last Updated:** 2026-09-04 (METIS 0.6.0)
 
 ---
 
@@ -20,7 +20,7 @@
 - [x] Data models: Business, Product, Customer, Order, AgentLog, Approval, ChatMessage — `backend/src/models/schemas.py` *(0.4.1: `Product` gained `product_key` — optional SKU-style identifier, unique per business)*
 - [x] Chat message persistence (`chat_messages` collection) — `backend/src/services/firestore.py` (`chat_service`)
 - [x] Pydantic schemas for validation — `backend/src/models/schemas.py`
-- [x] Environment configuration (.env) — `backend/src/core/config.py` *(0.3.0: `APP_VERSION` bumped to 0.3.0 in both config and `.env`; 0.4.1: bumped to 0.4.1, incl. the `.env` pin that overrides `config.py`; 0.4.3: bumped to 0.4.3; 0.5.0: bumped to 0.5.0)*
+- [x] Environment configuration (.env) — `backend/src/core/config.py` *(0.3.0: `APP_VERSION` bumped to 0.3.0 in both config and `.env`; 0.4.1: bumped to 0.4.1, incl. the `.env` pin that overrides `config.py`; 0.4.3: bumped to 0.4.3; 0.5.0: bumped to 0.5.0; 0.6.0: bumped to 0.6.0, adds `METIS_MOCK_AI` flag)*
 - [x] Health check endpoint — `backend/src/main.py` (`/health`)
 
 ## Milestone 2: Agent Framework ✅
@@ -60,6 +60,8 @@
 - [x] `/api/chat/{business_id}/history` — retrieve stored chat history
 - [x] `/api/storefront/{business_id}/history` + `/api/storefront/{business_id}/chat` — public customer chat (session-scoped, Sales Agent, `create_order` staged for approval, customer id server-verified) *(added 2026-08-12, commit `04645a0`; documented in 0.5.0)*
 - [x] `POST /api/demo/seed` — one-click demo store (5 products, 3 customers, 3 revenue-bearing orders) *(0.5.0)*
+- [x] `POST /api/chat/{business_id}/stream` + `POST /api/storefront/{business_id}/chat/stream` — SSE variants of the owner and storefront chat endpoints; the reply is computed the normal way (agents, tool calls, persistence) then replayed to the client word-by-word as `delta` events, ending with a `done` event carrying the full response *(0.6.0)*
+- [x] `POST /api/products/{business_id}/from-photo` — drafts a product (name, description, price, category) from an uploaded photo via Gemini vision; returns a best-effort JSON draft for the owner to review, not a saved product *(0.6.0)*
 - [x] `/api/approvals` — list, approve, reject *(2026-08-12: failed executions now mark the approval `failed` (`ApprovalStatus.FAILED`) instead of `approved`, returning the execution error. **0.3.0:** the owner's approve/reject no longer 400s on truncated/hallucinated IDs — staged actions resolve references before executing; the chat prompt now shows full product/customer/order IDs so the model stops inventing them)*
 - [x] `/api/analytics` — dashboard metrics
 
@@ -68,7 +70,7 @@
 
 - [x] Next.js 14 with App Router — `frontend/package.json`, `frontend/next.config.js`
 - [x] Tailwind CSS configuration — `frontend/tailwind.config.js`
-- [x] Shared layout with navigation — `frontend/src/app/layout.tsx`, `frontend/src/components/Sidebar.tsx` *(0.3.0: footer now shows `v0.3.0`; 0.4.1: shows `v0.4.1`; 0.4.3: shows `v0.4.3`; 0.5.0: shows `v0.5.0`)*
+- [x] Shared layout with navigation — `frontend/src/app/layout.tsx`, `frontend/src/components/Sidebar.tsx` *(0.3.0: footer now shows `v0.3.0`; 0.4.1: shows `v0.4.1`; 0.4.3: shows `v0.4.3`; 0.5.0: shows `v0.5.0`; 0.6.0: shows `v0.6.0`)*
 - [x] API client — `frontend/src/lib/api.ts` *(configurable via `NEXT_PUBLIC_API_URL`, falls back to `http://localhost:8000/api`; 0.3.0 adds `/models`, `/ai/config`, `/ai/config/clear` for the Gemini key panel)*
 - [x] TypeScript types matching backend models — `frontend/src/types/index.ts`
 - [ ] Authentication context — **Not implemented**
@@ -78,13 +80,13 @@
 
 - [x] **Dashboard** — revenue, orders, customers, alerts, recommendations — `frontend/src/app/page.tsx`
 - [x] **Agent Center** — agent status, tasks, success rates — `frontend/src/app/agents/page.tsx`
-- [x] **Business Chat** — chat interface with Manager Agent; persisted multi-turn history, Markdown rendering, survives reload; **Gemini API key can be set/cleared in-app** *(0.3.0)* — `frontend/src/app/chat/page.tsx`, `frontend/src/components/GeminiKeyPanel.tsx`
+- [x] **Business Chat** — chat interface with Manager Agent; persisted multi-turn history, Markdown rendering, survives reload; **Gemini API key can be set/cleared in-app** *(0.3.0)*; *(0.6.0: replies stream token-by-token over SSE via `frontend/src/lib/sse.ts` + `useStreamBatcher.ts`)* — `frontend/src/app/chat/page.tsx`, `frontend/src/components/GeminiKeyPanel.tsx`
 - [x] **Approval Center** — pending actions with approve/reject; *error alerts now surface the real execution error from the backend (e.g. "Product X not found") instead of a generic message (0.3.0)* — `frontend/src/app/approvals/page.tsx`
 - [x] **Activity Feed** — chronological agent activity log — `frontend/src/app/activity/page.tsx`
-- [x] **Products** — product management UI — `frontend/src/app/products/page.tsx` *(0.4.1: revamped — live search (name/category/product key), edit mode reusing the ledger form, delete with confirmation, product-key chips; split into `ProductForm.tsx` / `ProductCard.tsx`)*
+- [x] **Products** — product management UI — `frontend/src/app/products/page.tsx` *(0.4.1: revamped — live search (name/category/product key), edit mode reusing the ledger form, delete with confirmation, product-key chips; split into `ProductForm.tsx` / `ProductCard.tsx`; 0.6.0: "▣ Scan a photo" — client-side image normalize (capped to 1024px, JPEG) then `POST /products/{business_id}/from-photo` drafts the form)*
 - [x] **Orders** — order management UI; customer name under the `customer #XXXX` tag; "⤓ Memo" → printable receipt PDF *(0.5.0)* — `frontend/src/app/(owner)/orders/page.tsx`, `frontend/src/app/(owner)/orders/[orderId]/receipt/page.tsx`
 - [x] **Customers** — customer management UI — `frontend/src/app/customers/page.tsx`
-- [x] **Storefront Chat** — public customer-facing page (shopper check-in, catalog view, Sales Assistant chat, staging notice) — `frontend/src/app/storefront/[businessId]/page.tsx` *(added 2026-08-12, commit `04645a0`; documented in 0.5.0)*
+- [x] **Storefront Chat** — public customer-facing page (shopper check-in, catalog view, Sales Assistant chat, staging notice) — `frontend/src/app/storefront/[businessId]/page.tsx` *(added 2026-08-12, commit `04645a0`; documented in 0.5.0; 0.6.0: replies stream token-by-token over SSE)*
 - [x] **Setup Wizard demo shortcut** — "Load the demo store" seeds Deadpool's Den (5 products, 3 customers, 3 orders) via `POST /api/demo/seed` *(0.5.0)*
 
 ## Milestone 7: End-to-End Demo Workflow ✅ (95%)
@@ -115,7 +117,9 @@
 >
 > **0.5.0 (Phase 1 — E2E verification):** `backend/scripts/e2e_demo.py` committed — **27/27 checks green** on a clean SQLite DB: CRUD, `product_key` 409, cross-business 404, server-side totals, inventory decrement, revenue booking, analytics, approval 404 guard, plus live Gemini flows (owner chat stages `create_product` → approved → catalog updated; storefront chat stages `create_order` → approved → stock 8→6). Added `METIS_DB_PATH` env override for isolated test DBs.
 >
-> **0.5.0 (Phase 1B — demo experience, first batch):** `POST /api/demo/seed` + Setup Wizard "Load the demo store" button (5 products, 3 customers, 3 revenue orders). Orders page shows the customer name under the `customer #XXXX` tag. New **order memo PDF** — `/orders/{orderId}/receipt` renders the order as a printable docket (business, customer, items, totals, policies) via a new `@media print` block; "⤓ Memo" on every order card; zero new dependencies. Remaining 1B: mock AI mode, streaming chat, photo→product, voice briefing.
+> **0.5.0 (Phase 1B — demo experience, first batch):** `POST /api/demo/seed` + Setup Wizard "Load the demo store" button (5 products, 3 customers, 3 revenue orders). Orders page shows the customer name under the `customer #XXXX` tag. New **order memo PDF** — `/orders/{orderId}/receipt` renders the order as a printable docket (business, customer, items, totals, policies) via a new `@media print` block; "⤓ Memo" on every order card; zero new dependencies.
+>
+> **0.6.0 (Phase 1B — demo experience, second batch):** **Mock AI mode** (`METIS_MOCK_AI=1`) answers common owner-chat intents deterministically, no Gemini key required — pattern-matches the raw message for restock / mark out of stock / set stock / add product / delete product / move an order to a status, then dispatches straight to the same tool the real model would call (`backend/src/services/gemini.py::_mock_run_with_tools`). **Streaming chat** — owner and storefront chat now stream over SSE (`POST /api/chat/{business_id}/stream`, `POST /api/storefront/{business_id}/chat/stream`): the reply is computed the normal way (agents, tool calls, persistence, synced history) then replayed to the client word-by-word, consumed by `frontend/src/lib/sse.ts` (frame parsing) + `useStreamBatcher.ts` (throttled state updates) in both chat UIs. **Photo→product** — `POST /api/products/{business_id}/from-photo` asks Gemini vision for a JSON draft (name/description/price/category) from an uploaded photo; the Products page normalizes the photo client-side (canvas resize, capped to 1024px, JPEG) before upload, then opens the product form pre-filled with the draft for the owner to review. Remaining 1B: voice briefing.
 
 > **0.3.0 (2026-08-12):** The chat prompt now shows full product/customer/order IDs (they were truncated to 8 chars, which led Gemini to stage approvals with invalid references); `create_order`/`create_campaign` resolve references by ID, prefix, or name (case-insensitive, fuzzy fallback for e.g. `prod_batmobile` → `Bat-Mobile`). Approval Center alerts surface the backend's actual execution error. Local persistence switched from in-memory to SQLite (`backend/data/metis.db`).
 

@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
+import { streamChat } from '@/lib/sse';
+import { useStreamBatcher } from '@/lib/useStreamBatcher';
 import { Business, ChatMessage, Product } from '@/types';
 import Markdown from '@/components/Markdown';
 import { Cash, AgentDot } from '@/components/ui';
@@ -61,6 +63,8 @@ export default function StorefrontPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([GREETING]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [streaming, setStreaming] = useState(false);
+  const streamBatcher = useStreamBatcher();
   const [notice, setNotice] = useState('');
   const [loadError, setLoadError] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -116,7 +120,7 @@ export default function StorefrontPage() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loading]);
+  }, [messages, loading, streamBatcher.text]);
 
   const enterStore = async () => {
     const trimmed = name.trim();
@@ -150,44 +154,58 @@ export default function StorefrontPage() {
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
     setLoading(true);
+    setStreaming(true);
     setNotice('');
-    try {
-      const res = await api.post(`/storefront/${businessId}/chat`, {
+    streamBatcher.reset();
+
+    await streamChat(
+      `/storefront/${businessId}/chat/stream`,
+      {
         business_id: businessId,
         session_id: sessionId,
         customer_id: shopper?.customer_id || '',
         message: userMessage.content,
         history: messages.map((m) => ({ role: m.role, content: m.content, timestamp: m.timestamp })),
-      });
-      const staged = (res.data.agent_actions || []).some(
-        (a: any) => a.status === 'staged' && a.approval_id
-      );
-      if (staged) {
-        setNotice('Your order is being confirmed by the store — the owner has been asked to authorise it.');
+      },
+      {
+        onDelta: (text) => streamBatcher.push(text),
+        onDone: (response) => {
+          const staged = (response.agent_actions || []).some(
+            (a: any) => a.status === 'staged' && a.approval_id
+          );
+          if (staged) {
+            setNotice('Your order is being confirmed by the store — the owner has been asked to authorise it.');
+          }
+          if (Array.isArray(response.history) && response.history.length > 0) {
+            setMessages(
+              response.history.map((m: any) => ({
+                role: m.role,
+                content: m.content,
+                timestamp: m.timestamp,
+              }))
+            );
+          } else {
+            setMessages((prev) => [
+              ...prev,
+              { role: 'assistant', content: response.message, timestamp: new Date().toISOString() },
+            ]);
+          }
+          setStreaming(false);
+          setLoading(false);
+          streamBatcher.reset();
+        },
+        onError: () => {
+          setMessages((prev) => [
+            ...prev,
+            { role: 'assistant', content: 'Sorry, the shop assistant is unreachable right now. Please try again in a moment.' },
+          ]);
+          setStreaming(false);
+          setLoading(false);
+          streamBatcher.reset();
+        },
       }
-      if (Array.isArray(res.data.history) && res.data.history.length > 0) {
-        setMessages(
-          res.data.history.map((m: any) => ({
-            role: m.role,
-            content: m.content,
-            timestamp: m.timestamp,
-          }))
-        );
-      } else {
-        setMessages((prev) => [
-          ...prev,
-          { role: 'assistant', content: res.data.message, timestamp: new Date().toISOString() },
-        ]);
-      }
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: 'Sorry, the shop assistant is unreachable right now. Please try again in a moment.' },
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  }, [businessId, sessionId, shopper, input, loading, messages]);
+    );
+  }, [businessId, sessionId, shopper, input, loading, messages, streamBatcher]);
 
   if (loadError) {
     return (
@@ -337,15 +355,24 @@ export default function StorefrontPage() {
                       )}
                     </div>
                   ))}
-                  {loading && (
+                  {streaming && (
                     <div className='flex justify-start'>
-                      <div className='bg-card border border-ink border-l-[3px] border-l-agent-sales px-4 py-3 shadow-print-sm'>
-                        <div className='flex gap-1.5 py-0.5'>
-                          <span className='w-1.5 h-1.5 bg-ink/50 blink'></span>
-                          <span className='w-1.5 h-1.5 bg-ink/50 blink' style={{ animationDelay: '0.2s' }}></span>
-                          <span className='w-1.5 h-1.5 bg-ink/50 blink' style={{ animationDelay: '0.4s' }}></span>
+                      {streamBatcher.text ? (
+                        <div className='max-w-[85%] sm:max-w-[75%] bg-card border border-ink border-l-[3px] border-l-agent-sales px-4 py-3 shadow-print-sm'>
+                          <p className='font-mono text-[10px] uppercase tracking-[0.16em] text-ink-soft mb-1.5'>
+                            From the sales assistant
+                          </p>
+                          <Markdown content={streamBatcher.text} />
                         </div>
-                      </div>
+                      ) : (
+                        <div className='bg-card border border-ink border-l-[3px] border-l-agent-sales px-4 py-3 shadow-print-sm'>
+                          <div className='flex gap-1.5 py-0.5'>
+                            <span className='w-1.5 h-1.5 bg-ink/50 blink'></span>
+                            <span className='w-1.5 h-1.5 bg-ink/50 blink' style={{ animationDelay: '0.2s' }}></span>
+                            <span className='w-1.5 h-1.5 bg-ink/50 blink' style={{ animationDelay: '0.4s' }}></span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                   <div ref={messagesEndRef} />
@@ -395,7 +422,7 @@ export default function StorefrontPage() {
             Μῆτις · your business, operated by AI
           </p>
           <p className='font-mono text-[10px] uppercase tracking-[0.14em]'>
-            demo storefront · v0.5.0
+            demo storefront · v0.6.0
           </p>
         </div>
       </footer>

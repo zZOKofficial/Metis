@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from 'react';
 import { useBusiness } from '@/lib/BusinessContext';
 import api, { fetchAiConfig, saveAiConfig } from '@/lib/api';
 import { notifyDataChanged } from '@/lib/refresh';
+import { streamChat } from '@/lib/sse';
+import { useStreamBatcher } from '@/lib/useStreamBatcher';
 import { AiConfigStatus, ChatMessage, ModelInfo } from '@/types';
 import Markdown from '@/components/Markdown';
 import GeminiKeyPanel from '@/components/GeminiKeyPanel';
@@ -75,6 +77,8 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>(() => (businessId ? loadHistory(businessId) : [GREETING]));
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [streaming, setStreaming] = useState(false);
+  const streamBatcher = useStreamBatcher();
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [model, setModel] = useState<string>(() => {
     try {
@@ -186,7 +190,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, streamBatcher.text]);
 
   const sendMessage = async () => {
     if (!input.trim() || loading || !businessId) return;
@@ -195,30 +199,43 @@ export default function ChatPage() {
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
     setLoading(true);
+    setStreaming(true);
+    streamBatcher.reset();
 
-    try {
-      const res = await api.post(`/chat/${businessId}`, {
+    await streamChat(
+      `/chat/${businessId}/stream`,
+      {
         business_id: businessId,
-        message: input,
+        message: userMessage.content,
         model,
         history: fullHistory.slice(0, -1).map((m) => ({ role: m.role, content: m.content, timestamp: m.timestamp })),
-      });
-      if (!isErrorReply(res.data.message || '')) {
-        setVerifiedFlag();
-        setVerified(true);
+      },
+      {
+        onDelta: (text) => streamBatcher.push(text),
+        onDone: (response) => {
+          if (!isErrorReply(response.message || '')) {
+            setVerifiedFlag();
+            setVerified(true);
+          }
+          if (Array.isArray(response.history) && response.history.length > 0) {
+            setMessages(response.history.map((m: any) => ({ role: m.role, content: m.content, timestamp: m.timestamp })));
+          } else {
+            const assistantMessage: ChatMessage = { role: 'assistant', content: response.message, timestamp: new Date().toISOString() };
+            setMessages((prev) => [...prev, assistantMessage]);
+          }
+          notifyDataChanged();
+          setStreaming(false);
+          setLoading(false);
+          streamBatcher.reset();
+        },
+        onError: () => {
+          setMessages((prev) => [...prev, { role: 'assistant', content: 'Sorry, I encountered an error. Please make sure the backend is running.' }]);
+          setStreaming(false);
+          setLoading(false);
+          streamBatcher.reset();
+        },
       }
-      if (Array.isArray(res.data.history) && res.data.history.length > 0) {
-        setMessages(res.data.history.map((m: any) => ({ role: m.role, content: m.content, timestamp: m.timestamp })));
-      } else {
-        const assistantMessage: ChatMessage = { role: 'assistant', content: res.data.message, timestamp: new Date().toISOString() };
-        setMessages((prev) => [...prev, assistantMessage]);
-      }
-      notifyDataChanged();
-    } catch {
-      setMessages((prev) => [...prev, { role: 'assistant', content: 'Sorry, I encountered an error. Please make sure the backend is running.' }]);
-    } finally {
-      setLoading(false);
-    }
+    );
   };
 
   if (!businessId) {
@@ -337,15 +354,24 @@ export default function ChatPage() {
                 )}
               </div>
             ))}
-            {loading && (
+            {streaming && (
               <div className='flex justify-start'>
-                <div className='bg-card border border-ink border-l-[3px] border-l-carbon px-4 py-3 shadow-print-sm'>
-                  <div className='flex gap-1.5 py-0.5'>
-                    <span className='w-1.5 h-1.5 bg-ink/50 blink'></span>
-                    <span className='w-1.5 h-1.5 bg-ink/50 blink' style={{ animationDelay: '0.2s' }}></span>
-                    <span className='w-1.5 h-1.5 bg-ink/50 blink' style={{ animationDelay: '0.4s' }}></span>
+                {streamBatcher.text ? (
+                  <div className='max-w-[85%] sm:max-w-[75%] bg-card border border-ink border-l-[3px] border-l-carbon px-4 py-3 shadow-print-sm'>
+                    <p className='font-mono text-[10px] uppercase tracking-[0.16em] text-carbon mb-1.5'>
+                      From the manager
+                    </p>
+                    <Markdown content={streamBatcher.text} />
                   </div>
-                </div>
+                ) : (
+                  <div className='bg-card border border-ink border-l-[3px] border-l-carbon px-4 py-3 shadow-print-sm'>
+                    <div className='flex gap-1.5 py-0.5'>
+                      <span className='w-1.5 h-1.5 bg-ink/50 blink'></span>
+                      <span className='w-1.5 h-1.5 bg-ink/50 blink' style={{ animationDelay: '0.2s' }}></span>
+                      <span className='w-1.5 h-1.5 bg-ink/50 blink' style={{ animationDelay: '0.4s' }}></span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             <div ref={messagesEndRef} />

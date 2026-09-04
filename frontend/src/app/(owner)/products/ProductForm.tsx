@@ -7,29 +7,47 @@ import api from '@/lib/api';
 import { notifyDataChanged } from '@/lib/refresh';
 import { Product } from '@/types';
 
+interface DraftValues {
+  name?: string;
+  description?: string;
+  price?: number;
+  category?: string;
+}
+
 interface Props {
   initial?: Product | null;
+  draft?: DraftValues | null;
   onDone: () => void;
   onCancel: () => void;
 }
 
 const EMPTY = { name: '', description: '', product_key: '', price: '', stock: '', category: '' };
 
-export default function ProductForm({ initial, onDone, onCancel }: Props) {
+export default function ProductForm({ initial, draft, onDone, onCancel }: Props) {
   const { businessId } = useBusiness();
   const isEdit = Boolean(initial);
-  const [form, setForm] = useState(() =>
-    initial
-      ? {
-          name: initial.name,
-          description: initial.description,
-          product_key: initial.product_key || '',
-          price: String(initial.price),
-          stock: String(initial.stock),
-          category: initial.category || '',
-        }
-      : EMPTY
-  );
+  const [form, setForm] = useState(() => {
+    if (initial) {
+      return {
+        name: initial.name,
+        description: initial.description,
+        product_key: initial.product_key || '',
+        price: String(initial.price),
+        stock: String(initial.stock),
+        category: initial.category || '',
+      };
+    }
+    if (draft) {
+      return {
+        ...EMPTY,
+        name: draft.name || '',
+        description: draft.description || '',
+        price: draft.price ? String(draft.price) : '',
+        category: draft.category || '',
+      };
+    }
+    return EMPTY;
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -72,6 +90,11 @@ export default function ProductForm({ initial, onDone, onCancel }: Props) {
   return (
     <div className='ledger p-6 sm:p-8'>
       <p className='kicker mb-5'>{isEdit ? 'Edit entry · line item' : 'Stock entry form · line item'}</p>
+      {!isEdit && draft && (
+        <p className='font-mono text-[11px] uppercase tracking-[0.12em] text-ink-faint border border-dashed border-[var(--rule)] px-3 py-2 mb-5'>
+          Drafted from your photo — review before filing.
+        </p>
+      )}
       <div className='grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6'>
         <div>
           <label className='label mb-1' htmlFor='p-name'>

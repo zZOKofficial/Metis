@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ChangeEvent } from 'react';
 import { useBusiness } from '@/lib/BusinessContext';
 import api from '@/lib/api';
 import { useDataRefresh } from '@/lib/refresh';
@@ -9,12 +10,64 @@ import { Docket, LoadingState, EmptyState } from '@/components/ui';
 import ProductForm from './ProductForm';
 import ProductCard from './ProductCard';
 
+interface PhotoDraft {
+  name?: string;
+  description?: string;
+  price?: number;
+  category?: string;
+}
+
+const MAX_PHOTO_DIMENSION = 1024;
+
+function normalizePhoto(file: File): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > MAX_PHOTO_DIMENSION || height > MAX_PHOTO_DIMENSION) {
+        const scale = MAX_PHOTO_DIMENSION / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        URL.revokeObjectURL(url);
+        reject(new Error('Canvas not supported.'));
+        return;
+      }
+      ctx.drawImage(img, 0, 0, width, height);
+      canvas.toBlob(
+        (blob) => {
+          URL.revokeObjectURL(url);
+          if (blob) resolve(blob);
+          else reject(new Error('Could not encode the image.'));
+        },
+        'image/jpeg',
+        0.85
+      );
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Could not read the image.'));
+    };
+    img.src = url;
+  });
+}
+
 export default function ProductsPage() {
   const { businessId } = useBusiness();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
+  const [draft, setDraft] = useState<PhotoDraft | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [scanError, setScanError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
 
   const loadProducts = async () => {
@@ -51,11 +104,36 @@ export default function ProductsPage() {
   const closeForm = () => {
     setShowForm(false);
     setEditing(null);
+    setDraft(null);
   };
 
   const startEdit = (product: Product) => {
     setShowForm(false);
+    setDraft(null);
     setEditing(product);
+  };
+
+  const handlePhotoSelected = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !businessId) return;
+    setScanning(true);
+    setScanError('');
+    try {
+      const normalized = await normalizePhoto(file);
+      const formData = new FormData();
+      formData.append('file', normalized, 'photo.jpg');
+      const res = await api.post(`/products/${businessId}/from-photo`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setEditing(null);
+      setDraft(res.data);
+      setShowForm(true);
+    } catch {
+      setScanError("Couldn't draft a product from that photo — add it by hand instead.");
+    } finally {
+      setScanning(false);
+    }
   };
 
   if (!businessId) {
@@ -72,21 +150,42 @@ export default function ProductsPage() {
         title='Products'
         memo='shelf register · what the sales agent can promise'
         action={
-          <button
-            onClick={() => {
-              closeForm();
-              setShowForm(!showForm);
-            }}
-            className='btn btn-primary'
-          >
-            {showForm ? '✕ Close form' : '+ New entry'}
-          </button>
+          <div className='flex gap-2.5'>
+            <input
+              ref={fileInputRef}
+              type='file'
+              accept='image/*'
+              onChange={handlePhotoSelected}
+              className='hidden'
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={scanning}
+              className='btn btn-ghost'
+            >
+              {scanning ? 'Scanning…' : '▣ Scan a photo'}
+            </button>
+            <button
+              onClick={() => {
+                closeForm();
+                setShowForm(!showForm);
+              }}
+              className='btn btn-primary'
+            >
+              {showForm ? '✕ Close form' : '+ New entry'}
+            </button>
+          </div>
         }
       />
+
+      {scanError && (
+        <p className='font-mono text-[11px] uppercase tracking-[0.12em] text-stamp'>{scanError}</p>
+      )}
 
       {(showForm || editing) && (
         <ProductForm
           initial={editing}
+          draft={draft}
           onDone={closeForm}
           onCancel={closeForm}
         />
