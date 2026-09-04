@@ -208,6 +208,7 @@ The frontend talks to the backend via `NEXT_PUBLIC_API_URL` (defaults to `http:/
 | PUT | `/api/orders/{business_id}/{order_id}/status` | Update order status |
 | GET | `/api/agents/{business_id}` | Agent status |
 | GET | `/api/agents/{business_id}/activity` | Agent activity log |
+| GET | `/api/agents/{business_id}/briefing` | Manager Agent's spoken-style summary (Dashboard's voice briefing) |
 | POST | `/api/chat/{business_id}` | Chat with Manager Agent |
 | GET | `/api/chat/{business_id}/history` | Chat history |
 | POST | `/api/storefront/{business_id}/chat` | Public customer chat (Sales Agent) |
@@ -243,9 +244,9 @@ The pipeline builds both images, pushes them to Container Registry, and deploys 
 
 - **Complete (Milestones 0-4, 6):** core backend, agent framework, all 6 agents, REST API, all frontend pages
 - **Complete (Milestone 7, ~95%):** E2E demo workflow — business setup → catalog → storefront customer chat → orders → approvals → analytics, **scripted verification passing 27/27** (`backend/scripts/e2e_demo.py`)
-- **Complete:** automated tests (Milestone 9) — `backend/tests/` (58 pytest tests, isolated temp SQLite DB + mock AI per test)
-- **In progress:** demo experience polish (seeding done; mock AI mode, streaming chat, photo→product done; voice briefing planned), Firebase Auth, commerce hardening, deployment, real-time updates
-- **Not started:** authentication & security (Milestone 8)
+- **Complete:** automated tests (Milestone 9) — `backend/tests/` (69 pytest tests, isolated temp SQLite DB + mock AI per test); Phase 1B demo-experience polish (seeding, mock AI mode, streaming chat, photo→product, voice briefing)
+- **In progress:** commerce hardening, deployment, real-time updates
+- **Deprioritized (hackathon scope):** authentication & security (Milestone 8) — not required for this project
 
 See [`docs/MILESTONES.md`](docs/MILESTONES.md) for the detailed milestone breakdown and [`docs/STATUS_REPORT.md`](docs/STATUS_REPORT.md) for the latest status.
 

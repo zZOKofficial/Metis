@@ -2,6 +2,7 @@ from typing import Any, Optional
 from datetime import datetime
 
 from .base import BaseAgent, can_request
+from ..core.config import settings
 from ..models.schemas import (
     AgentType,
     AgentMessage,
@@ -159,6 +160,9 @@ Communication style: Professional, direct, helpful."""
         low_stock = [p for p in products if p.get("stock", 0) <= 5]
         currency = self.get_currency_symbol()
 
+        if settings.METIS_MOCK_AI:
+            return self._mock_summary(business, products, orders, customers, total_revenue, low_stock, currency)
+
         prompt = f"""Based on the following business data, produce a concise summary for the business owner.
 
 Business: {business.get('name', 'Unknown')}
@@ -179,6 +183,45 @@ Recent Orders:
 Provide a 3-4 sentence summary with one actionable recommendation."""
 
         return self.think(prompt, temperature=0.5)
+
+    @staticmethod
+    def _mock_summary(
+        business: dict[str, Any],
+        products: list[dict[str, Any]],
+        orders: list[dict[str, Any]],
+        customers: list[dict[str, Any]],
+        total_revenue: float,
+        low_stock: list[dict[str, Any]],
+        currency: str,
+    ) -> str:
+        """Deterministic stand-in for `produce_summary()` under mock AI mode.
+
+        Built directly from the already-computed metrics (no Gemini call), so
+        the voice briefing reads real numbers even with no Gemini key.
+        """
+        name = business.get("name") or "Your business"
+        order_word = "order" if len(orders) == 1 else "orders"
+        customer_word = "customer" if len(customers) == 1 else "customers"
+        product_word = "product" if len(products) == 1 else "products"
+
+        parts = [
+            f"{name} has booked {currency}{total_revenue:,.2f} in revenue across {len(orders)} {order_word} "
+            f"from {len(customers)} {customer_word}, with {len(products)} {product_word} in the catalog."
+        ]
+
+        if low_stock:
+            names = ", ".join(p["name"] for p in low_stock[:3])
+            plural = "are" if len(low_stock) != 1 else "is"
+            parts.append(
+                f"{len(low_stock)} {product_word if len(low_stock) != 1 else 'product'} {plural} running low on stock, "
+                f"including {names} — restocking those is the highest-leverage move today."
+            )
+        elif not orders:
+            parts.append("No orders yet — getting the first one in is the priority.")
+        else:
+            parts.append("Inventory looks healthy across the board.")
+
+        return " ".join(parts)
 
     async def handle_message(self, message: AgentMessage) -> AgentResponse:
         """Handle incoming messages (usually from the owner via chat)."""

@@ -250,6 +250,15 @@ def get_agent_activity(business_id: str, agent_type: str = '', limit: int = 50):
     return logs[:limit]
 
 
+@router.get('/agents/{business_id}/briefing')
+def get_voice_briefing(business_id: str):
+    '''A short spoken-style summary of the business, for the Dashboard's voice briefing button.'''
+    from ..agents.registry import get_agent
+    manager = get_agent(AgentType.MANAGER, business_id)
+    summary = manager.produce_summary()
+    return {'summary': summary}
+
+
 # === Chat ===
 
 MAX_CHAT_HISTORY = 100

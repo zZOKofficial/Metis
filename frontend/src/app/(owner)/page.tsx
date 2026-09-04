@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useBusiness } from '@/lib/BusinessContext';
 import api from '@/lib/api';
 import { notifyDataChanged, useDataRefresh } from '@/lib/refresh';
+import { useVoiceBriefing } from '@/lib/useVoiceBriefing';
 import { DashboardMetrics, AgentStatus } from '@/types';
 import SetupWizard from '@/components/SetupWizard';
 import { Docket, LoadingState, AgentDot, AGENT_LABEL, Cash } from '@/components/ui';
@@ -15,6 +16,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [restockQty, setRestockQty] = useState<Record<string, string>>({});
   const [restocking, setRestocking] = useState<string | null>(null);
+  const briefing = useVoiceBriefing(businessId);
 
   const handleRestock = async (product: { id: string; name: string; stock: number; status?: string }) => {
     const qty = parseInt(restockQty[product.id] || '', 10);
@@ -144,7 +146,26 @@ export default function DashboardPage() {
             </section>
 
             <section className='ledger p-5' aria-label='Manager memo'>
-              <h2 className='kicker mb-1'>From the manager’s desk</h2>
+              <div className='flex items-baseline justify-between gap-3 mb-1'>
+                <h2 className='kicker'>From the manager’s desk</h2>
+                <button
+                  onClick={briefing.play}
+                  disabled={briefing.status === 'loading'}
+                  className='btn btn-ghost !py-1 !px-2 text-[10px] whitespace-nowrap'
+                  title={briefing.status === 'unsupported' ? 'Voice isn’t supported in this browser' : 'Hear today’s summary read aloud'}
+                >
+                  {briefing.status === 'loading' && '…'}
+                  {briefing.status === 'speaking' && '■ Stop'}
+                  {briefing.status === 'idle' && '🔊 Voice briefing'}
+                  {briefing.status === 'error' && '⚠ Retry briefing'}
+                  {briefing.status === 'unsupported' && '🔊 Not supported here'}
+                </button>
+              </div>
+              {briefing.summary && (
+                <p className='text-[13px] leading-relaxed text-ink-soft italic border-l-2 border-carbon pl-4 mb-3'>
+                  “{briefing.summary}”
+                </p>
+              )}
               <div className='mt-4 space-y-3'>
                 {(metrics?.recommendations?.length ?? 0) === 0 ? (
                   <p className='font-mono text-xs uppercase tracking-[0.1em] text-ink-faint'>

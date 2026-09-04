@@ -2,7 +2,7 @@
 
 > Build a company, not a science project.
 
-**Last Updated:** 2026-09-04 (METIS 0.7.1)
+**Last Updated:** 2026-09-04 (METIS 0.7.2)
 
 ---
 
@@ -65,6 +65,7 @@
 - [x] `/api/approvals` — list, approve, reject *(2026-08-12: failed executions now mark the approval `failed` (`ApprovalStatus.FAILED`) instead of `approved`, returning the execution error. **0.3.0:** the owner's approve/reject no longer 400s on truncated/hallucinated IDs — staged actions resolve references before executing; the chat prompt now shows full product/customer/order IDs so the model stops inventing them)*
 - [x] `/api/analytics` — dashboard metrics
 - [x] `GET /api/currencies` — curated currency list (code/symbol/name) for the Setup Wizard's picker *(0.7.1)*
+- [x] `GET /api/agents/{business_id}/briefing` — Manager Agent's spoken-style business summary for the Dashboard's voice briefing button *(0.7.2)*
 
 ## Milestone 5: Frontend Foundation ⚠️
 **Goal:** Next.js app with routing, layout, API client
@@ -149,6 +150,8 @@
 > **0.7.0 (2026-09-04):** Milestone 9 gets a committed pytest suite — `backend/tests/` (58 tests, `pytest.ini` at the backend root). `conftest.py` gives every test a fresh temp SQLite DB (each `FirestoreService` singleton's cached `_db` handle is reset alongside the module-level one) and mock AI mode on (`METIS_MOCK_AI=1`), so the whole suite runs with no Gemini key and never touches `backend/data/metis.db`. Covers business/product/customer/order CRUD, `product_key` 409, cross-business 404 ownership guards, order booking/release/reapply on status transitions, revenue recognition, the approval stage → approve/reject → execute pipeline (incl. the execution-failure → `FAILED` path), the full `PERMISSION_MATRIX`, mock-AI chat tool dispatch (restock/set-stock/mark-out-of-stock/add-product/delete-product/move-order-status), and demo seeding. Found and fixed a real bug along the way: `GET /analytics/{business_id}/revenue` silently ignored the documented `period` (`today`/`7d`/`30d`) query param — the route never accepted it, so it always behaved like `all`; `backend/src/api/routes.py` now passes it through. `backend/scripts/e2e_demo.py` (27/27, incl. live-Gemini flows) remains as-is for manual/live-key verification.
 
 > **0.7.1 (2026-09-04):** Per-business currency selection. `Business.currency` (default `BDT`) is picked once in the Setup Wizard (step 1, alongside category) from a curated 18-currency list (`backend/src/core/currency.py`, served at `GET /api/currencies`); no FX conversion — a business only ever deals in its own currency. Replaced ~20 places across the backend that hardcoded the Taka symbol (`৳`) in agent prompts, chat summaries, and API routes with `BaseAgent.get_currency_symbol()` / `currency_symbol(business.get('currency'))`, and the frontend's shared `<Cash>` money component (`frontend/src/components/ui.tsx`) now takes an explicit `currency` prop resolved via `frontend/src/lib/currency.ts`, threaded through all 6 of its call sites plus the product-form price label. A business created before this field existed reads back as `BDT` — the pre-existing default — with no migration needed. Added `backend/tests/test_currency.py`.
+
+> **0.7.2 (2026-09-04):** Voice briefing — the last planned Phase 1B item. `GET /api/agents/{business_id}/briefing` returns `ManagerAgent.produce_summary()`'s text; the Dashboard's new "🔊 Voice briefing" button (in the "From the manager's desk" panel) fetches it and reads it aloud with the browser's built-in `SpeechSynthesis` API — no server-side TTS, no new dependency, no API cost. `produce_summary()` now branches on `METIS_MOCK_AI`: in mock mode it builds the sentence directly from the already-computed metrics (revenue, order/customer/product counts, low-stock names) instead of calling Gemini, so the briefing reads real numbers even with no Gemini key configured — this matters because the feature is meant to work reliably in a live demo. Browser-verified end to end with Playwright (demo store → click briefing → correct numbers spoken, no console errors). Added `backend/tests/test_voice_briefing.py`.
 
 ## Milestone 10: Deployment ⚠️
 **Goal:** Live on Google Cloud

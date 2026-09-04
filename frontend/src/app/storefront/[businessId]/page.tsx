@@ -422,7 +422,7 @@ export default function StorefrontPage() {
             Μῆτις · your business, operated by AI
           </p>
           <p className='font-mono text-[10px] uppercase tracking-[0.14em]'>
-            demo storefront · v0.7.1
+            demo storefront · v0.7.2
           </p>
         </div>
       </footer>
