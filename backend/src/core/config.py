@@ -77,7 +77,7 @@ class Settings(BaseSettings):
 
     # Application
     APP_NAME: str = 'METIS'
-    APP_VERSION: str = '0.8.3'
+    APP_VERSION: str = '0.8.4'
     DEBUG: bool = True
     CORS_ORIGINS: list[str] = ['http://localhost:3000', 'http://localhost:8000']
 
