@@ -2,7 +2,7 @@
 
 > Build a company, not a science project.
 
-**Last Updated:** 2026-09-05 (METIS 0.8.0)
+**Last Updated:** 2026-09-05 (METIS 0.8.1)
 
 ---
 
@@ -175,6 +175,7 @@ Google Cloud Run was the original target and is **not reachable for this project
 - [x] Environment variable setup — every hosted setting documented in `backend/.env.example` and `backend/README.md`; `CORS_ORIGINS` now accepts the comma-separated spelling a dashboard text box invites *(0.8.0)*
 - [x] Credentials for hosts with no metadata server — `backend/src/core/credentials.py` *(0.8.0)*
 - [x] Deployment-safety guard — `METIS_REQUIRE_FIRESTORE`, plus `/health` reporting the live database and auth mode *(0.8.0)*
+- [x] Firebase CLI wiring — `firebase.json` at the repo root points at `deployment/firestore.indexes.json`; without it `firebase deploy --only firestore:indexes` reports "not in a Firebase project directory" and the composite indexes are never created, which the index file's own comment had been recommending since 0.7.5. Security rules are deliberately not declared, so a deploy from this repo can never loosen the default deny-all — the backend uses the Admin SDK, which bypasses rules, and no client touches Firestore directly *(0.8.1)*
 - [ ] Backend running on a public URL (Hugging Face Space)
 - [ ] Frontend running on a public URL (Vercel)
 - [ ] Custom domain (optional)

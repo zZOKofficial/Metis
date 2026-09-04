@@ -1,0 +1,7 @@
+{
+  "//": "Firebase CLI config. Present so `firebase deploy --only firestore:indexes` resolves the index file that has lived in deployment/ since 0.7.5 -- without this, the CLI reports 'not in a Firebase project directory' and the composite indexes never get created, leaving every compound query on a full collection scan. Run `firebase use --add` once to bind a project; that writes .firebaserc.",
+  "//rules": "Security rules are deliberately not declared here. The backend reaches Firestore through the Admin SDK, which bypasses rules entirely, and no client ever touches Firestore directly -- the frontend uses Firebase only for Authentication. Leaving rules out means a deploy from this repo can never loosen the default deny-all.",
+  "firestore": {
+    "indexes": "deployment/firestore.indexes.json"
+  }
+}

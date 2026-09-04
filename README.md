@@ -255,10 +255,13 @@ CORS_ORIGINS=https://<your-app>.vercel.app
 
 `METIS_REQUIRE_FIRESTORE` matters more than it looks. Without it the app falls back to a local SQLite file whenever Firestore is unreachable — the right behaviour on a laptop, and silently destructive on a container whose filesystem is discarded on restart. `GET /health` reports which database is actually serving and whether auth is being enforced, so a misconfigured deploy is one request away from admitting it.
 
-Deploy the Firestore composite indexes once, before going live:
+Deploy the Firestore composite indexes once, before going live. Without them every compound query falls back to a full collection scan, which still answers correctly but reads (and on a paid plan, bills for) every tenant's documents:
 
 ```bash
-firebase deploy --only firestore:indexes    # deployment/firestore.indexes.json
+npm install -g firebase-tools
+firebase login
+firebase use --add                          # bind a project; writes .firebaserc
+firebase deploy --only firestore:indexes    # reads firebase.json -> deployment/firestore.indexes.json
 ```
 
 ### Frontend
