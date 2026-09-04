@@ -27,13 +27,13 @@ export default function Header({ onMenu }: { onMenu: () => void }) {
           </button>
           <p className='font-display text-base font-bold truncate'>{currentBusiness?.name || 'METIS'}</p>
           {currentBusiness && (
-            <span className='ticket ticket--carbon hidden sm:inline-flex'>{currentBusiness.category}</span>
+            <span className='ticket ticket--carbon hidden sm:inline-flex lg:hidden'>{currentBusiness.category}</span>
           )}
         </div>
         <div className='flex items-center gap-4'>
           {currentBusiness && (
             <>
-              <span className='hidden md:flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-card/50'>
+              <span className='hidden md:flex lg:hidden items-center gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-card/50'>
                 <span aria-hidden className='inline-block w-1.5 h-1.5 rounded-full bg-ok blink' />
                 Workforce on duty
               </span>

@@ -227,7 +227,7 @@ export default function StorefrontPage() {
       <header className='bg-ink text-card border-b border-white/10'>
         <div className='mx-auto max-w-5xl w-full flex items-center justify-between gap-3 px-4 sm:px-8 py-4'>
           <div className='min-w-0'>
-            <p className='font-mono text-[10px] uppercase tracking-[0.24em] text-card/50'>Boyarinov Media Group · storefront</p>
+            <p className='font-mono text-[10px] uppercase tracking-[0.24em] text-card/50'>{business?.category || 'General store'} · storefront</p>
             <h1 className='font-display text-xl sm:text-2xl font-extrabold tracking-tight truncate'>
               {business?.name || 'The shop'}
             </h1>
@@ -422,7 +422,7 @@ export default function StorefrontPage() {
             Μῆτις · your business, operated by AI
           </p>
           <p className='font-mono text-[10px] uppercase tracking-[0.14em]'>
-            demo storefront · v0.6.1
+            demo storefront · v0.6.2
           </p>
         </div>
       </footer>

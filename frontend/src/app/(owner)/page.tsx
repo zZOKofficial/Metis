@@ -188,7 +188,7 @@ export default function DashboardPage() {
                 {lowStock.map((p) => (
                   <form
                     key={p.id}
-                    className='flex items-center gap-2 ticket ticket--danger !border-dashed !bg-card'
+                    className='flex items-center gap-2 flex-wrap !whitespace-normal ticket ticket--danger !border-dashed !bg-card'
                     onSubmit={(e) => {
                       e.preventDefault();
                       handleRestock(p);
