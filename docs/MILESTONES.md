@@ -2,7 +2,7 @@
 
 > Build a company, not a science project.
 
-**Last Updated:** 2026-09-05 (METIS 0.8.2)
+**Last Updated:** 2026-09-05 (METIS 0.8.3)
 
 ---
 
@@ -178,6 +178,7 @@ Google Cloud Run was the original target and is **not reachable for this project
 - [x] Credentials for hosts with no metadata server — `backend/src/core/credentials.py` *(0.8.0)*
 - [x] Deployment-safety guard — `METIS_REQUIRE_FIRESTORE`, plus `/health` reporting the live database and auth mode *(0.8.0)*
 - [x] Firebase CLI wiring — `firebase.json` at the repo root points at `deployment/firestore.indexes.json`; without it `firebase deploy --only firestore:indexes` reports "not in a Firebase project directory" and the composite indexes are never created, which the index file's own comment had been recommending since 0.7.5. Security rules are deliberately not declared, so a deploy from this repo can never loosen the default deny-all — the backend uses the Admin SDK, which bypasses rules, and no client touches Firestore directly *(0.8.1)*
+- [x] Firestore composite indexes deployed — all 7 live on `oxyorb-metis`, verified with `firebase firestore:indexes`. The declared `businesses`/`owner_uid` entry had to go: Firestore indexes every single field automatically and rejects a composite declaration of one outright, failing the entire deploy rather than skipping that entry *(0.8.3)*
 - [ ] Backend running on a public URL (Hugging Face Space)
 - [ ] Frontend running on a public URL (Vercel)
 - [ ] Custom domain (optional)
