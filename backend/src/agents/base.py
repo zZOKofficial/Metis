@@ -12,6 +12,9 @@ from ..services.firestore import agent_log_service, business_service
 from ..services.gemini import gemini_service
 from ..core.currency import currency_symbol
 
+# Distinguishes "not looked up yet" from "looked up, and there is no owner".
+_UNRESOLVED = object()
+
 
 # === Permission System ===
 
@@ -98,6 +101,7 @@ class BaseAgent(ABC):
         self.memory = AgentMemory(agent_type, business_id)
         self.gemini = gemini_service
         self._tools: dict[str, callable] = {}
+        self._owner_uid: Any = _UNRESOLVED
 
     @property
     @abstractmethod
@@ -115,6 +119,24 @@ class BaseAgent(ABC):
         """This business's chosen currency symbol, for prompts and summaries."""
         business = business_service.get(self.business_id) or {}
         return currency_symbol(business.get('currency', ''))
+
+    @property
+    def owner_uid(self) -> Optional[str]:
+        """Whose Gemini key this agent spends.
+
+        An agent acts on behalf of a business, so the key that pays for its
+        thinking is the business owner's -- including on the public storefront,
+        where the shopper driving the conversation has no account and no key of
+        their own. Cached because every think() would otherwise re-read the
+        business document.
+
+        Empty for a business created before ownership existed, which resolves
+        to the same global key that install has always used.
+        """
+        if self._owner_uid is _UNRESOLVED:
+            business = business_service.get(self.business_id) or {}
+            self._owner_uid = business.get('owner_uid') or None
+        return self._owner_uid
 
     def register_tool(self, name: str, func: callable):
         """Register a tool the agent can use."""
@@ -151,6 +173,7 @@ class BaseAgent(ABC):
             system_instruction=self.system_prompt,
             temperature=temperature,
             history=history,
+            owner_uid=self.owner_uid,
         )
 
     def think_structured(self, prompt: str) -> str:
@@ -158,6 +181,7 @@ class BaseAgent(ABC):
         return self.gemini.generate_structured(
             prompt,
             system_instruction=self.system_prompt,
+            owner_uid=self.owner_uid,
         )
 
     @abstractmethod

@@ -274,7 +274,7 @@ export default function GeminiKeyPanel({
             </div>
 
             <p className='font-mono text-[10px] leading-relaxed text-ink-faint mt-3'>
-              Saved keys are kept on the server, never in the ledger. Saving tests the key immediately.
+              Saved keys are kept on the server, never in the ledger, and belong to your account alone. Saving tests the key immediately.
             </p>
             {error && (
               <p className='font-mono text-[11px] text-[var(--stamp)] mt-2' role='alert'>

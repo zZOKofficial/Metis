@@ -35,53 +35,81 @@ class GeminiService:
     ]
 
     def __init__(self):
-        self._client: Optional[Any] = None
-        # None = not yet loaded from the store; '' = saved key cleared
-        self._saved_key: Optional[str] = None
+        # Clients keyed by the API key that built them: one owner's client must
+        # never serve another owner's request, and rebuilding per call would
+        # throw away the connection pool.
+        self._clients: dict[str, Any] = {}
+        # Saved keys by scope. A scope absent from the dict has not been read
+        # from the store yet; '' means it was read and there is no saved key.
+        self._saved_keys: dict[Optional[str], str] = {}
 
-    def configure(self, api_key: str) -> None:
-        """Set the saved key in-process and force the client to rebuild."""
-        self._saved_key = api_key
-        self._client = None
+    def reset_cache(self) -> None:
+        """Forget every resolved key and client. For tests and key changes."""
+        self._clients.clear()
+        self._saved_keys.clear()
 
-    def _load_saved_key(self) -> str:
+    @staticmethod
+    def scope_doc_id(owner_uid: Optional[str]) -> str:
+        """Where this caller's key lives.
+
+        A signed-in owner gets their own document. With no identity -- auth
+        disabled, or a business created before ownership existed -- it is the
+        single global document a local install has always used.
+        """
+        return f'ai_config:{owner_uid}' if owner_uid else 'ai_config'
+
+    def configure(self, api_key: str, owner_uid: Optional[str] = None) -> None:
+        """Set one scope's saved key in-process and drop the stale clients."""
+        self._saved_keys[owner_uid] = api_key
+        self._clients.clear()
+
+    def _load_saved_key(self, owner_uid: Optional[str]) -> str:
         try:
             from ..services.firestore import app_state_service
-            doc = app_state_service.get('ai_config')
+            doc = app_state_service.get(self.scope_doc_id(owner_uid))
             return (doc or {}).get('api_key', '') or ''
         except Exception:
             return ''
 
-    def _effective_key(self) -> str:
-        """Saved key wins over the env key; unset keys report as unconfigured."""
-        if self._saved_key is None:
-            self._saved_key = self._load_saved_key()
-        return self._saved_key or settings.GEMINI_API_KEY
+    def _effective_key(self, owner_uid: Optional[str] = None) -> str:
+        """This caller's key: their own if they saved one, else the env key.
 
-    def _ensure_client(self) -> Optional[Any]:
-        if self._client is None and self._effective_key():
-            self._client = genai.Client(api_key=self._effective_key())
-        return self._client
+        An owner never falls back to another owner's saved key -- that is the
+        whole point of scoping it, since the quota and the bill follow the key.
+        They may fall back to GEMINI_API_KEY, which belongs to whoever runs the
+        deployment and is deliberately shared.
+        """
+        if owner_uid not in self._saved_keys:
+            self._saved_keys[owner_uid] = self._load_saved_key(owner_uid)
+        return self._saved_keys[owner_uid] or settings.GEMINI_API_KEY
 
-    def is_configured(self) -> bool:
-        return settings.METIS_MOCK_AI or bool(self._effective_key())
+    def _ensure_client(self, owner_uid: Optional[str] = None) -> Optional[Any]:
+        key = self._effective_key(owner_uid)
+        if not key:
+            return None
+        if key not in self._clients:
+            self._clients[key] = genai.Client(api_key=key)
+        return self._clients[key]
 
-    def key_source(self) -> Optional[str]:
-        if not self._effective_key():
+    def is_configured(self, owner_uid: Optional[str] = None) -> bool:
+        return settings.METIS_MOCK_AI or bool(self._effective_key(owner_uid))
+
+    def key_source(self, owner_uid: Optional[str] = None) -> Optional[str]:
+        if not self._effective_key(owner_uid):
             return 'mock' if settings.METIS_MOCK_AI else None
-        return 'user' if self._saved_key else 'env'
+        return 'user' if self._saved_keys.get(owner_uid) else 'env'
 
     @staticmethod
     def is_valid_model(model: str) -> bool:
         return any(m["id"] == model for m in GeminiService.AVAILABLE_MODELS)
 
-    def test_key(self, api_key: Optional[str] = None) -> dict[str, Any]:
+    def test_key(self, api_key: Optional[str] = None, owner_uid: Optional[str] = None) -> dict[str, Any]:
         """Live auth check: list models with the given (or currently effective) key.
 
         Costs no generation quota — it's a pure authentication probe.
         Returns {"valid": bool, "error": Optional[str]}.
         """
-        key = api_key if api_key is not None else self._effective_key()
+        key = api_key if api_key is not None else self._effective_key(owner_uid)
         if not key:
             if settings.METIS_MOCK_AI:
                 return {"valid": True, "error": None}
@@ -133,9 +161,10 @@ class GeminiService:
         max_tokens: int = 1024,
         history: Optional[list[dict[str, Any]]] = None,
         model: Optional[str] = None,
+        owner_uid: Optional[str] = None,
     ) -> str:
         """Generate text from Gemini, optionally continuing a conversation history."""
-        if not self._effective_key():
+        if not self._effective_key(owner_uid):
             return "Gemini API key not configured."
 
         try:
@@ -148,7 +177,7 @@ class GeminiService:
             contents = self._format_turn(history or [])
             contents.append({'role': 'user', 'parts': [{'text': prompt}]})
 
-            client = self._ensure_client()
+            client = self._ensure_client(owner_uid)
             response = client.models.generate_content(
                 model=model or self.MODEL,
                 contents=contents,
@@ -162,6 +191,7 @@ class GeminiService:
         self,
         prompt: str,
         system_instruction: Optional[str] = None,
+        owner_uid: Optional[str] = None,
     ) -> str:
         """Generate structured text (lower temperature for consistency)."""
         return self.generate(
@@ -169,6 +199,7 @@ class GeminiService:
             system_instruction=system_instruction,
             temperature=0.3,
             max_tokens=2048,
+            owner_uid=owner_uid,
         )
 
     def run_with_tools(
@@ -183,6 +214,7 @@ class GeminiService:
         max_rounds: int = 5,
         model: Optional[str] = None,
         raw_message: Optional[str] = None,
+        owner_uid: Optional[str] = None,
     ) -> dict[str, Any]:
         """Agentic function-calling loop.
 
@@ -200,7 +232,7 @@ class GeminiService:
         if settings.METIS_MOCK_AI:
             return self._mock_run_with_tools(raw_message if raw_message is not None else prompt, on_call)
 
-        if not self._effective_key():
+        if not self._effective_key(owner_uid):
             return {"text": "Gemini API key not configured.", "agent_actions": []}
 
         contents = self._format_turn(history or [])
@@ -219,7 +251,7 @@ class GeminiService:
             if system_instruction:
                 body["systemInstruction"] = {"parts": [{"text": system_instruction}]}
 
-            data = self._post_generate(body, model=model)
+            data = self._post_generate(body, model=model, owner_uid=owner_uid)
             if "error" in data:
                 return {"text": f"AI generation error: {data['error']}", "agent_actions": actions}
 
@@ -334,7 +366,12 @@ class GeminiService:
 
     _JSON_BLOCK = re.compile(r'\{.*\}', re.DOTALL)
 
-    def draft_product_from_image(self, image_bytes: bytes, mime_type: str = 'image/jpeg') -> dict[str, Any]:
+    def draft_product_from_image(
+        self,
+        image_bytes: bytes,
+        mime_type: str = 'image/jpeg',
+        owner_uid: Optional[str] = None,
+    ) -> dict[str, Any]:
         """Ask Gemini vision to draft a product listing from a photo.
 
         Returns a dict with name/description/price/category (price 0 and
@@ -348,7 +385,7 @@ class GeminiService:
                 'category': '',
             }
 
-        if not self._effective_key():
+        if not self._effective_key(owner_uid):
             return {'name': '', 'description': '', 'price': 0.0, 'category': ''}
 
         prompt = (
@@ -370,7 +407,7 @@ class GeminiService:
             }],
             'generationConfig': {'temperature': 0.2, 'maxOutputTokens': 512},
         }
-        data = self._post_generate(body)
+        data = self._post_generate(body, owner_uid=owner_uid)
         if 'error' in data:
             return {'name': '', 'description': '', 'price': 0.0, 'category': ''}
 
@@ -398,7 +435,12 @@ class GeminiService:
 
     # === Raw REST helpers ===
 
-    def _post_generate(self, body: dict[str, Any], model: Optional[str] = None) -> dict[str, Any]:
+    def _post_generate(
+        self,
+        body: dict[str, Any],
+        model: Optional[str] = None,
+        owner_uid: Optional[str] = None,
+    ) -> dict[str, Any]:
         """POST to the generateContent REST endpoint, returning the JSON dict."""
         url = GENERATE_CONTENT_URL.format(model=model or self.MODEL)
         try:
@@ -407,7 +449,7 @@ class GeminiService:
                 url,
                 content=payload,
                 headers={
-                    "x-goog-api-key": self._effective_key(),
+                    "x-goog-api-key": self._effective_key(owner_uid),
                     "Content-Type": "application/json",
                 },
                 timeout=120,
