@@ -1,6 +1,6 @@
 # METIS — Status Report
 
-**Date:** 2026-08-17 (updated 2026-09-05 — METIS 0.8.0)
+**Date:** 2026-08-17 (updated 2026-09-05 — METIS 0.8.2)
 **Auditor:** Automated codebase analysis
 **Overall Completion:** ~95% — all milestones complete except the live URLs in Milestone 10
 
@@ -210,15 +210,15 @@ METIS is a full-stack AI-powered business management platform built with Next.js
 - Remaining: single-click browser walkthrough of the 12-step scenario on the live UI (script covers the API layer end-to-end)
 - Campaign creation flow partially exposed (via chat + Approval Center; no dedicated campaign UI)
 
-### Milestone 8 — Complete except roles and per-owner keys *(0.7.5, 0.7.6)*
+### Milestone 8 — Complete except staff roles *(0.7.5, 0.7.6, 0.8.2)*
 - **Firebase Auth integration** ✅ — identity resolved by HTTP middleware in `backend/src/main.py` through the thin `verify_token` seam in `backend/src/core/firebase.py`; the middleware decodes and continues rather than rejecting, so the public storefront stays reachable by shoppers with no account
 - **Route protection** ✅ — `require_business_access` guards all 28 owner routes; the 3 storefront routes use the existence-only `get_business_or_404`; a business the caller does not own is reported 404, not 403, so someone else's id is never confirmed to exist
 - **Input validation hardening** ✅ — `PUT /api/business/{id}` took an unvalidated `dict`; `id`, `owner_uid` and `created_at` are now stripped
 - **Role-based access control** ❌ — a single owner role; staff and roles are not modelled
-- **API key protection** ❌ — the Gemini key is still one global `app_state/ai_config` document plus a process-wide cache, and must become per-owner before the backend is genuinely shared
+- **API key protection** ✅ *(0.8.2)* — each owner's Gemini key lives in `app_state/ai_config:{uid}` and is resolved per caller; an owner never inherits another owner's key, only the deployment's shared `GEMINI_API_KEY`. Agents resolve the scope from the business they act for (`BaseAgent.owner_uid`), so the public storefront spends the shop owner's key rather than the shopper's, who has none
 
 ### Milestone 9 — Complete (committed suite)
-- `backend/tests/` holds 137 committed pytest tests across 15 files, run via `pytest` from `backend/` (`pytest.ini` sets `testpaths = tests`). No network, no Gemini key, no Firebase project: `verify_token` and `google.cloud.firestore` are the two seams the suite patches
+- `backend/tests/` holds 151 committed pytest tests across 16 files, run via `pytest` from `backend/` (`pytest.ini` sets `testpaths = tests`). No network, no Gemini key, no Firebase project: `verify_token` and `google.cloud.firestore` are the two seams the suite patches
 - *(0.4.1-0.4.3: ad-hoc FastAPI `TestClient` suites exercised product CRUD (incl. the `product_key` 409 path), the staged `create_product`/`delete_product` approval flow, and `set_stock` — including the `KeyError` it crashed on before the fix; run locally, not yet committed)*
 - *(0.5.0: `backend/scripts/e2e_demo.py` committed — 27/27 green, incl. live-Gemini approval flows)*
 - *(0.7.0: `backend/tests/conftest.py` gives each test a fresh temp SQLite DB and mock AI mode on — no Gemini key needed, dev DB never touched. Coverage: agent permission matrix, business/product/customer/order CRUD + cross-business ownership 404s, order inventory/customer booking and release/reapply across status transitions, revenue recognition, dashboard/top-products/low-stock analytics, the full approval stage→approve/reject→execute pipeline incl. execution-failure handling, mock-AI chat tool dispatch for all six owner-chat intents, and demo-store seeding)*

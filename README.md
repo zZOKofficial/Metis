@@ -291,10 +291,10 @@ gcloud builds submit --config deployment/cloudbuild.yaml
 
 - **Complete (Milestones 0-4, 6):** core backend, agent framework, all 6 agents, REST API, all frontend pages
 - **Complete (Milestone 7, ~95%):** E2E demo workflow — business setup → catalog → storefront customer chat → orders → approvals → analytics, **scripted verification passing 27/27** (`backend/scripts/e2e_demo.py`)
-- **Complete:** automated tests (Milestone 9) — `backend/tests/` (137 pytest tests, isolated temp SQLite DB + mock AI per test, no network or API keys required); Phase 1B demo-experience polish (seeding, mock AI mode, streaming chat, photo→product, voice briefing)
+- **Complete:** automated tests (Milestone 9) — `backend/tests/` (151 pytest tests, isolated temp SQLite DB + mock AI per test, no network or API keys required); Phase 1B demo-experience polish (seeding, mock AI mode, streaming chat, photo→product, voice briefing)
 - **Complete (Milestone 8):** authentication & multi-tenant access — Firebase email/password sign-in, per-business ownership enforced on all 28 owner routes, query push-down so one shop's listing no longer reads every other shop's documents. Off by default, so local development is unchanged
 - **In progress (Milestone 10):** deployment — the container, credentials and safety guards are in place; the public URLs are not up yet
-- **Open:** commerce hardening, real-time updates, per-owner Gemini keys, staff roles
+- **Open:** commerce hardening, real-time updates, staff roles
 
 See [`docs/MILESTONES.md`](docs/MILESTONES.md) for the detailed milestone breakdown and [`docs/STATUS_REPORT.md`](docs/STATUS_REPORT.md) for the latest status.
 

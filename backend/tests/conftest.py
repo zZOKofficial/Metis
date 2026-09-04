@@ -51,8 +51,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, 'GEMINI_API_KEY', '')
     monkeypatch.setattr(settings, 'METIS_MOCK_AI', True)
     _reset_db_handles()
-    gemini_service._saved_key = None
-    gemini_service._client = None
+    gemini_service.reset_cache()
 
     from src.main import app
     with TestClient(app) as test_client:

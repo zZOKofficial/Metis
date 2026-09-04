@@ -127,7 +127,11 @@ async def draft_product_from_photo(business_id: str, file: UploadFile = File(...
     image_bytes = await file.read()
     if not image_bytes:
         raise HTTPException(status_code=400, detail='Uploaded file is empty.')
-    draft = gemini_service.draft_product_from_image(image_bytes, file.content_type or 'image/jpeg')
+    draft = gemini_service.draft_product_from_image(
+        image_bytes,
+        file.content_type or 'image/jpeg',
+        owner_uid=_business.get('owner_uid') or None,
+    )
     return draft
 
 
@@ -280,43 +284,48 @@ CHAT_CONTEXT_TURNS = 20
 
 # === AI Config ===
 
+# Each owner's key is stored under its own document and is never readable by,
+# or fallen back to, another account -- the quota and the bill follow the key.
+# `require_user` guards the writes: with auth on, an anonymous caller writing
+# the unscoped document would be setting a key for everyone.
+
 @router.post('/ai/config')
-def save_ai_config(data: AiConfigRequest):
+def save_ai_config(data: AiConfigRequest, uid: Optional[str] = Depends(require_user)):
     from ..services.gemini import gemini_service
     key = data.api_key.strip()
     if not key:
         raise HTTPException(status_code=400, detail='API key cannot be empty.')
-    app_state_service.create({'api_key': key}, doc_id='ai_config')
-    gemini_service.configure(key)
+    app_state_service.create({'api_key': key}, doc_id=gemini_service.scope_doc_id(uid))
+    gemini_service.configure(key, owner_uid=uid)
     return {'configured': True, 'key_source': 'user'}
 
 
 @router.post('/ai/config/test')
-def test_ai_config(data: AiConfigRequest):
+def test_ai_config(data: AiConfigRequest, uid: Optional[str] = Depends(get_current_uid)):
     from ..services.gemini import gemini_service
     key = data.api_key.strip()
-    return gemini_service.test_key(key or None)
+    return gemini_service.test_key(key or None, owner_uid=uid)
 
 
 @router.post('/ai/config/clear')
-def clear_ai_config():
+def clear_ai_config(uid: Optional[str] = Depends(require_user)):
     from ..services.gemini import gemini_service
-    app_state_service.delete('ai_config')
-    gemini_service.configure('')
+    app_state_service.delete(gemini_service.scope_doc_id(uid))
+    gemini_service.configure('', owner_uid=uid)
     return {
-        'configured': gemini_service.is_configured(),
-        'key_source': gemini_service.key_source(),
+        'configured': gemini_service.is_configured(uid),
+        'key_source': gemini_service.key_source(uid),
     }
 
 
 @router.get('/models')
-def list_models():
+def list_models(uid: Optional[str] = Depends(get_current_uid)):
     from ..services.gemini import gemini_service
     return {
         'models': gemini_service.AVAILABLE_MODELS,
         'default': gemini_service.MODEL,
-        'configured': gemini_service.is_configured(),
-        'key_source': gemini_service.key_source(),
+        'configured': gemini_service.is_configured(uid),
+        'key_source': gemini_service.key_source(uid),
     }
 
 
@@ -461,6 +470,7 @@ After the tools run, summarize concisely what you did or what is awaiting approv
         history=[{'role': m['role'], 'content': m['content']} for m in history],
         model=model or None,
         raw_message=data.message,
+        owner_uid=business.get('owner_uid') or None,
     )
     response = result.get('text') or ''
 
