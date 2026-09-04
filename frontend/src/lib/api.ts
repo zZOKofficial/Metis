@@ -26,4 +26,14 @@ export async function clearAiConfig(): Promise<void> {
   await api.post('/ai/config/clear');
 }
 
+export interface AiKeyTestResult {
+  valid: boolean;
+  error: string | null;
+}
+
+export async function testAiConfig(apiKey?: string): Promise<AiKeyTestResult> {
+  const res = await api.post('/ai/config/test', { api_key: apiKey || '' });
+  return { valid: !!res.data.valid, error: res.data.error ?? null };
+}
+
 export default api;

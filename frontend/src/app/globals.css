@@ -338,6 +338,26 @@
     }
   }
 
+  @keyframes dot-pulse {
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.35;
+      transform: scale(0.85);
+    }
+  }
+  .dot-pulse {
+    animation: dot-pulse 0.9s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .dot-pulse {
+      animation: none;
+    }
+  }
+
   @keyframes fade-up {
     from {
       opacity: 0;

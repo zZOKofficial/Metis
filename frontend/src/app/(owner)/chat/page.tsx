@@ -19,7 +19,6 @@ const GREETING: ChatMessage = {
 const MAX_SAVED_MESSAGES = 200;
 const DEFAULT_MODEL = 'gemini-flash-lite-latest';
 const MODEL_STORAGE_KEY = 'metis_chat_model';
-const VERIFICATION_STORAGE_KEY = 'metis_gemini_verified';
 
 const storageKey = (businessId: string) => `metis_chat_${businessId}`;
 
@@ -48,30 +47,6 @@ function isErrorReply(content: string): boolean {
   return content.startsWith('AI generation error') || /api[ _-]?key/i.test(content);
 }
 
-function loadVerified(): boolean {
-  try {
-    return localStorage.getItem(VERIFICATION_STORAGE_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
-
-function clearVerified() {
-  try {
-    localStorage.removeItem(VERIFICATION_STORAGE_KEY);
-  } catch {
-    // Ignore storage failures
-  }
-}
-
-function setVerifiedFlag() {
-  try {
-    localStorage.setItem(VERIFICATION_STORAGE_KEY, '1');
-  } catch {
-    // Ignore storage failures
-  }
-}
-
 export default function ChatPage() {
   const { businessId } = useBusiness();
   const [messages, setMessages] = useState<ChatMessage[]>(() => (businessId ? loadHistory(businessId) : [GREETING]));
@@ -87,7 +62,6 @@ export default function ChatPage() {
       return DEFAULT_MODEL;
     }
   });
-  const [verified, setVerified] = useState(loadVerified);
   const [aiStatus, setAiStatus] = useState<AiConfigStatus | null>(null);
   const [configOpen, setConfigOpen] = useState(false);
   const [gateKey, setGateKey] = useState('');
@@ -130,8 +104,6 @@ export default function ChatPage() {
   };
 
   const handleConfigApplied = () => {
-    clearVerified();
-    setVerified(false);
     refreshAiStatus();
   };
 
@@ -213,10 +185,6 @@ export default function ChatPage() {
       {
         onDelta: (text) => streamBatcher.push(text),
         onDone: (response) => {
-          if (!isErrorReply(response.message || '')) {
-            setVerifiedFlag();
-            setVerified(true);
-          }
           if (Array.isArray(response.history) && response.history.length > 0) {
             setMessages(response.history.map((m: any) => ({ role: m.role, content: m.content, timestamp: m.timestamp })));
           } else {
@@ -262,7 +230,6 @@ export default function ChatPage() {
           model={model}
           onModelChange={handleModelChange}
           keySource={aiStatus ? aiStatus.key_source : null}
-          verified={verified}
           onSaved={handleConfigApplied}
           onCleared={handleConfigApplied}
         />

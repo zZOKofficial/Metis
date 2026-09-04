@@ -13,6 +13,7 @@ from ..core.config import settings
 # from another flow), the documented placeholder below is accepted.
 SKIP_THOUGHT_SIGNATURE = "skip_thought_signature_validator"
 GENERATE_CONTENT_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+MODELS_LIST_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 
 
 class GeminiService:
@@ -73,6 +74,36 @@ class GeminiService:
     @staticmethod
     def is_valid_model(model: str) -> bool:
         return any(m["id"] == model for m in GeminiService.AVAILABLE_MODELS)
+
+    def test_key(self, api_key: Optional[str] = None) -> dict[str, Any]:
+        """Live auth check: list models with the given (or currently effective) key.
+
+        Costs no generation quota — it's a pure authentication probe.
+        Returns {"valid": bool, "error": Optional[str]}.
+        """
+        key = api_key if api_key is not None else self._effective_key()
+        if not key:
+            if settings.METIS_MOCK_AI:
+                return {"valid": True, "error": None}
+            return {"valid": False, "error": "No API key configured."}
+
+        try:
+            resp = httpx.get(
+                MODELS_LIST_URL,
+                headers={"x-goog-api-key": key},
+                params={"pageSize": 1},
+                timeout=15,
+            )
+        except Exception as e:
+            return {"valid": False, "error": f"Request failed: {str(e)}"}
+
+        if resp.status_code != 200:
+            try:
+                message = resp.json().get("error", {}).get("message", resp.text[:200])
+            except Exception:
+                message = resp.text[:200]
+            return {"valid": False, "error": f"{resp.status_code} {message}"}
+        return {"valid": True, "error": None}
 
     @staticmethod
     def _format_turn(history: list[dict[str, Any]]) -> list[dict[str, Any]]:

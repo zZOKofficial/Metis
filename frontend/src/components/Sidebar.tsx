@@ -61,7 +61,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           <span aria-hidden className='inline-block w-1.5 h-1.5 rounded-full bg-ok blink' />
           <p className='font-mono text-[10px] uppercase tracking-[0.18em] text-card/45'>Workforce on duty</p>
         </div>
-        <p className='font-mono text-[10px] text-card/30 mt-2'>6 specialists · v0.6.2</p>
+        <p className='font-mono text-[10px] text-card/30 mt-2'>6 specialists · v0.6.3</p>
       </div>
     </aside>
   );

@@ -1,30 +1,42 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { clearAiConfig, saveAiConfig } from '@/lib/api';
+import { clearAiConfig, saveAiConfig, testAiConfig } from '@/lib/api';
 import { AiKeySource, ModelInfo } from '@/types';
 
 const WARN_COLOR = '#b07a2e';
+
+type TestStatus = 'idle' | 'testing' | 'valid' | 'invalid';
 
 function shortModelName(info: ModelInfo | undefined, fallback: string): string {
   const raw = info?.name || fallback || 'Gemini';
   return raw.replace(/^Gemini\s+/i, '').replace(/\s*\([^)]*\)\s*$/, '').trim();
 }
 
-function dotTone(keySource: AiKeySource, verified: boolean): { color: string; label: string } {
-  if (keySource === 'user' && verified) {
-    return { color: 'var(--ok)', label: 'Your key · verified' };
-  }
-  if (keySource === 'user') {
-    return { color: WARN_COLOR, label: 'Your key · saved, unverified' };
-  }
-  if (keySource === 'env') {
-    return { color: WARN_COLOR, label: 'Server default key · active' };
-  }
+function dotTone(keySource: AiKeySource, testStatus: TestStatus): { color: string; label: string; pulse?: boolean } {
   if (keySource === 'mock') {
     return { color: 'var(--ok)', label: 'Mock AI mode · no key needed' };
   }
-  return { color: 'var(--stamp)', label: 'No key · not connected' };
+  if (keySource === null) {
+    return { color: 'var(--stamp)', label: 'No key · not connected' };
+  }
+  // A real key is configured (user or env) — the live test result drives the dot.
+  if (testStatus === 'testing') {
+    return { color: WARN_COLOR, label: 'Testing connection…', pulse: true };
+  }
+  if (testStatus === 'invalid') {
+    return { color: 'var(--stamp)', label: 'Key rejected — see below' };
+  }
+  if (testStatus === 'valid') {
+    return {
+      color: 'var(--ok)',
+      label: keySource === 'user' ? 'Your key · verified' : 'Server default key · verified',
+    };
+  }
+  return {
+    color: WARN_COLOR,
+    label: keySource === 'user' ? 'Your key · saved, untested' : 'Server default key · untested',
+  };
 }
 
 interface GeminiKeyPanelProps {
@@ -34,7 +46,6 @@ interface GeminiKeyPanelProps {
   model: string;
   onModelChange: (model: string) => void;
   keySource: AiKeySource;
-  verified: boolean;
   onSaved: () => void;
   onCleared: () => void;
 }
@@ -46,7 +57,6 @@ export default function GeminiKeyPanel({
   model,
   onModelChange,
   keySource,
-  verified,
   onSaved,
   onCleared,
 }: GeminiKeyPanelProps) {
@@ -54,9 +64,40 @@ export default function GeminiKeyPanel({
   const [reveal, setReveal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [testStatus, setTestStatus] = useState<TestStatus>('idle');
+  const [testError, setTestError] = useState('');
   const wrapRef = useRef<HTMLDivElement>(null);
 
-  const tone = dotTone(keySource, verified);
+  const tone = dotTone(keySource, testStatus);
+
+  const runTest = async (key?: string) => {
+    setTestStatus('testing');
+    setTestError('');
+    try {
+      const result = await testAiConfig(key);
+      if (result.valid) {
+        setTestStatus('valid');
+      } else {
+        setTestStatus('invalid');
+        setTestError(result.error || 'The key was rejected.');
+      }
+    } catch {
+      setTestStatus('invalid');
+      setTestError("Couldn't reach the backend to test the key.");
+    }
+  };
+
+  // Give a live read the moment a real key is known to be configured —
+  // not only after the owner explicitly saves one this session.
+  useEffect(() => {
+    if ((keySource === 'user' || keySource === 'env') && testStatus === 'idle') {
+      runTest();
+    } else if (keySource === null || keySource === 'mock') {
+      setTestStatus('idle');
+      setTestError('');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [keySource]);
 
   useEffect(() => {
     if (!open) return;
@@ -85,6 +126,9 @@ export default function GeminiKeyPanel({
       await saveAiConfig(key);
       setApiKey('');
       onSaved();
+      // Test the key that was just saved immediately — don't wait for a
+      // real chat message to find out it doesn't work.
+      await runTest(key);
     } catch {
       setError("Couldn't reach the backend — is it running?");
     } finally {
@@ -99,6 +143,8 @@ export default function GeminiKeyPanel({
     try {
       await clearAiConfig();
       setApiKey('');
+      setTestStatus('idle');
+      setTestError('');
       onCleared();
     } catch {
       setError("Couldn't reach the backend — is it running?");
@@ -116,7 +162,11 @@ export default function GeminiKeyPanel({
         aria-label='AI connection settings'
         className='flex items-center gap-2 bg-card border border-ink px-3 py-2 shadow-print-sm cursor-pointer hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[1.5px] active:translate-y-[1.5px] transition-transform'
       >
-        <span aria-hidden className='w-2 h-2 rounded-full shrink-0' style={{ background: tone.color }} />
+        <span
+          aria-hidden
+          className={`w-2 h-2 rounded-full shrink-0 ${tone.pulse ? 'dot-pulse' : ''}`}
+          style={{ background: tone.color }}
+        />
         <span className='font-mono text-[11px] uppercase tracking-[0.14em] text-ink'>
           {shortModelName(models.find((m) => m.id === model), model)}
         </span>
@@ -141,9 +191,27 @@ export default function GeminiKeyPanel({
             <h2 className='font-display text-lg font-bold tracking-tight mt-1'>AI connection</h2>
 
             <p className='font-mono text-[11px] uppercase tracking-[0.12em] mt-3 flex items-center gap-2'>
-              <span aria-hidden className='w-2 h-2 rounded-full shrink-0' style={{ background: tone.color }} />
+              <span
+                aria-hidden
+                className={`w-2 h-2 rounded-full shrink-0 ${tone.pulse ? 'dot-pulse' : ''}`}
+                style={{ background: tone.color }}
+              />
               <span className='text-ink-soft'>{tone.label}</span>
+              {(keySource === 'user' || keySource === 'env') && testStatus !== 'testing' && (
+                <button
+                  type='button'
+                  onClick={() => runTest()}
+                  className='ml-auto text-ink-faint hover:text-ink transition-colors normal-case tracking-normal'
+                >
+                  Retest
+                </button>
+              )}
             </p>
+            {testStatus === 'invalid' && testError && (
+              <p className='font-mono text-[11px] text-[var(--stamp)] mt-2 leading-relaxed' role='alert'>
+                {testError}
+              </p>
+            )}
 
             <div className='mt-4'>
               <label className='label mb-1' htmlFor='ai-key-input'>
@@ -206,7 +274,7 @@ export default function GeminiKeyPanel({
             </div>
 
             <p className='font-mono text-[10px] leading-relaxed text-ink-faint mt-3'>
-              Saved keys are kept on the server, never in the ledger.
+              Saved keys are kept on the server, never in the ledger. Saving tests the key immediately.
             </p>
             {error && (
               <p className='font-mono text-[11px] text-[var(--stamp)] mt-2' role='alert'>

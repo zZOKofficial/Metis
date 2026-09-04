@@ -260,6 +260,13 @@ def save_ai_config(data: AiConfigRequest):
     return {'configured': True, 'key_source': 'user'}
 
 
+@router.post('/ai/config/test')
+def test_ai_config(data: AiConfigRequest):
+    from ..services.gemini import gemini_service
+    key = data.api_key.strip()
+    return gemini_service.test_key(key or None)
+
+
 @router.post('/ai/config/clear')
 def clear_ai_config():
     from ..services.gemini import gemini_service
