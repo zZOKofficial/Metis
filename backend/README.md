@@ -13,7 +13,7 @@ answers agent chats deterministically without a Gemini key.
 ```bash
 pip install -r requirements.txt
 uvicorn src.main:app --reload --port 8000     # from backend/
-pytest                                         # 151 tests, no network, no keys
+pytest                                         # 160 tests, no network, no keys
 ```
 
 ## Configuration

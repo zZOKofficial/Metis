@@ -5,8 +5,9 @@ import re
 import sqlite3
 import threading
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Any
+from ..core.clock import as_utc, utcnow
 from ..core.config import settings
 
 # Lazy database client
@@ -27,7 +28,10 @@ def _revive(value: Any) -> Any:
     if isinstance(value, dict):
         if _DATETIME_MARKER in value and len(value) == 1:
             try:
-                return datetime.fromisoformat(value[_DATETIME_MARKER])
+                # Rows written before datetimes were made aware come back
+                # naive; normalize here so the rest of the app never has to
+                # care which build wrote a given document.
+                return as_utc(datetime.fromisoformat(value[_DATETIME_MARKER]))
             except (ValueError, TypeError):
                 return value
         return {k: _revive(v) for k, v in value.items()}
@@ -383,8 +387,8 @@ class FirestoreService:
 
     def create(self, data: dict, doc_id: Optional[str] = None) -> str:
         doc_id = doc_id or generate_id()
-        data['created_at'] = datetime.utcnow()
-        data['updated_at'] = datetime.utcnow()
+        data['created_at'] = utcnow()
+        data['updated_at'] = utcnow()
         self.db.collection(self.collection).document(doc_id).set(data)
         return doc_id
 
@@ -398,7 +402,7 @@ class FirestoreService:
         return None
 
     def update(self, doc_id: str, data: dict) -> bool:
-        data['updated_at'] = datetime.utcnow()
+        data['updated_at'] = utcnow()
         doc_ref = self.db.collection(self.collection).document(doc_id)
         doc_ref.update(data)
         return True

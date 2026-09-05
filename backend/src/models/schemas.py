@@ -1,7 +1,10 @@
 from datetime import datetime
-from typing import Optional, Any
-from pydantic import BaseModel, Field
 from enum import Enum
+from typing import Optional, Any
+
+from pydantic import BaseModel, Field
+
+from ..core.clock import utcnow
 
 
 # === Enums ===
@@ -86,8 +89,8 @@ class Business(BusinessBase):
     # request body. Empty on businesses created before auth existed, which
     # require_business_access treats as unowned.
     owner_uid: str = ""
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
 
 
 # === Product ===
@@ -117,8 +120,8 @@ class ProductCreate(ProductBase):
 class Product(ProductBase):
     id: str
     business_id: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
 
 
 # === Customer ===
@@ -139,7 +142,7 @@ class Customer(CustomerBase):
     business_id: str
     total_orders: int = 0
     total_spent: float = 0.0
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 # === Order ===
@@ -172,8 +175,8 @@ class Order(OrderBase):
     id: str
     business_id: str
     status: OrderStatus = OrderStatus.PENDING
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
 
 
 # === Agent Log ===
@@ -186,7 +189,7 @@ class AgentLog(BaseModel):
     details: dict[str, Any] = Field(default_factory=dict)
     status: str = "completed"
     result: str = ""
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 # === Approval ===
@@ -207,7 +210,7 @@ class Approval(ApprovalBase):
     id: str
     business_id: str
     status: ApprovalStatus = ApprovalStatus.PENDING
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
     resolved_at: Optional[datetime] = None
 
 
@@ -237,7 +240,7 @@ class AgentResponse(BaseModel):
 class ChatMessage(BaseModel):
     role: str  # "user" or "assistant"
     content: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=utcnow)
 
 
 class ChatRequest(BaseModel):
@@ -260,7 +263,7 @@ class StorefrontChatRequest(ChatRequest):
 class ChatResponse(BaseModel):
     message: str
     agent_actions: list[dict[str, Any]] = Field(default_factory=list)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=utcnow)
     history: list[ChatMessage] = Field(default_factory=list)
 
 

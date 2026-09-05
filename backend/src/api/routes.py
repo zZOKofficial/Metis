@@ -1,7 +1,7 @@
 ﻿from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
 from fastapi.responses import StreamingResponse
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 from ..models.schemas import (
     BusinessCreate,
@@ -28,6 +28,7 @@ from ..services.firestore import (
     storefront_chat_service,
     app_state_service,
 )
+from ..core.clock import as_utc, utcnow
 from ..core.currency import currency_symbol
 from ..core.auth import (
     require_business_access,
@@ -329,10 +330,17 @@ def list_models(uid: Optional[str] = Depends(get_current_uid)):
     }
 
 
+# Sort fallback for a message with no usable `created_at`. Aware, because the
+# stored timestamps it is sorted against are aware and Python refuses to order
+# the two kinds together -- a naive `datetime.min` here would turn one
+# malformed document into a 500 for the whole history.
+_EPOCH = datetime.min.replace(tzinfo=timezone.utc)
+
+
 def _sorted_chat_history(business_id: str) -> list[dict]:
     """All stored chat messages for a business, oldest first."""
     messages = chat_service.list_all([('business_id', '==', business_id)])
-    messages.sort(key=lambda m: m.get('created_at') or datetime.min)
+    messages.sort(key=lambda m: as_utc(m['created_at']) if isinstance(m.get('created_at'), datetime) else _EPOCH)
     return messages
 
 
@@ -390,7 +398,7 @@ def _process_manager_turn(business_id: str, data: ChatRequest) -> ChatResponse:
         'business_id': business_id,
         'role': 'user',
         'content': data.message,
-        'timestamp': datetime.utcnow(),
+        'timestamp': utcnow(),
     })
 
     # Exclude the turn just persisted: it is included in the prompt below
@@ -488,7 +496,7 @@ After the tools run, summarize concisely what you did or what is awaiting approv
         'business_id': business_id,
         'role': 'assistant',
         'content': response,
-        'timestamp': datetime.utcnow(),
+        'timestamp': utcnow(),
     })
 
     # Trim history to the cap
@@ -536,7 +544,7 @@ def _sorted_storefront_history(business_id: str, session_id: str) -> list[dict]:
         ('business_id', '==', business_id),
         ('session_id', '==', session_id),
     ])
-    messages.sort(key=lambda m: m.get('created_at') or datetime.min)
+    messages.sort(key=lambda m: as_utc(m['created_at']) if isinstance(m.get('created_at'), datetime) else _EPOCH)
     return messages
 
 
@@ -587,7 +595,7 @@ def _process_storefront_turn(business_id: str, data: StorefrontChatRequest) -> C
         'session_id': session_id,
         'role': 'user',
         'content': data.message,
-        'timestamp': datetime.utcnow(),
+        'timestamp': utcnow(),
     })
 
     # Exclude the turn just persisted: it is included in the prompt below
@@ -667,7 +675,7 @@ Be a helpful, honest shop assistant:
         'session_id': session_id,
         'role': 'assistant',
         'content': response,
-        'timestamp': datetime.utcnow(),
+        'timestamp': utcnow(),
     })
 
     # Trim history to the cap
@@ -721,14 +729,13 @@ def approve_action(business_id: str, approval_id: str, _business: dict = Depends
     if approval.get('status') != ApprovalStatus.PENDING.value:
         raise HTTPException(status_code=400, detail='Approval already resolved.')
 
-    from datetime import datetime
     from ..services.actions import execute_staged_action
 
     result = execute_staged_action(business_id, approval)
     success = result.get('success', False)
     approval_service.update(approval_id, {
         'status': ApprovalStatus.APPROVED.value if success else ApprovalStatus.FAILED.value,
-        'resolved_at': datetime.utcnow(),
+        'resolved_at': utcnow(),
         'execution': result,
     })
     if not success:
@@ -751,10 +758,9 @@ def reject_action(business_id: str, approval_id: str, _business: dict = Depends(
         raise HTTPException(status_code=404, detail='Approval not found.')
     if approval.get('status') != ApprovalStatus.PENDING.value:
         raise HTTPException(status_code=400, detail='Approval already resolved.')
-    from datetime import datetime
     approval_service.update(approval_id, {
         'status': ApprovalStatus.REJECTED.value,
-        'resolved_at': datetime.utcnow(),
+        'resolved_at': utcnow(),
     })
     return {'message': 'Action rejected.', 'approval_id': approval_id}
 

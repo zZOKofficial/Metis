@@ -1,6 +1,6 @@
 # METIS — Status Report
 
-**Date:** 2026-08-17 (updated 2026-09-05 — METIS 0.8.5)
+**Date:** 2026-08-17 (updated 2026-09-05 — METIS 0.8.6)
 **Auditor:** Automated codebase analysis
 **Overall Completion:** ~95% — all milestones complete except the live URLs in Milestone 10
 

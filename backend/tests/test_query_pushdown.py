@@ -83,9 +83,9 @@ def test_scalar_filters_are_pushable_but_datetimes_are_not():
 
 def test_unpushable_filter_still_filters_in_python(seeded):
     """A filter the store cannot evaluate must not silently return everything."""
-    from datetime import datetime, timedelta
-    future = datetime.utcnow() + timedelta(days=1)
-    past = datetime.utcnow() - timedelta(days=1)
+    from datetime import timedelta
+    future = fs.utcnow() + timedelta(days=1)
+    past = fs.utcnow() - timedelta(days=1)
 
     # created_at is a datetime, so this filter cannot be pushed down -- it has
     # to be applied in Python after the (pushed-down) business_id filter.

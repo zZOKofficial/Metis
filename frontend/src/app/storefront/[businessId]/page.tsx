@@ -422,7 +422,7 @@ export default function StorefrontPage() {
             Μῆτις · think. act. grow.
           </p>
           <p className='font-mono text-[10px] uppercase tracking-[0.14em]'>
-            demo storefront · v0.8.5 ·{' '}
+            demo storefront · v0.8.6 ·{' '}
             <a href='https://github.com/zZOKofficial' target='_blank' rel='noopener noreferrer' className='hover:text-card transition-colors'>
               OxyOrb
             </a>
