@@ -1,6 +1,6 @@
 # METIS — Status Report
 
-**Date:** 2026-08-17 (updated 2026-09-05 — METIS 0.8.2)
+**Date:** 2026-08-17 (updated 2026-09-05 — METIS 0.8.5)
 **Auditor:** Automated codebase analysis
 **Overall Completion:** ~95% — all milestones complete except the live URLs in Milestone 10
 
@@ -224,7 +224,7 @@ METIS is a full-stack AI-powered business management platform built with Next.js
 - *(0.7.0: `backend/tests/conftest.py` gives each test a fresh temp SQLite DB and mock AI mode on — no Gemini key needed, dev DB never touched. Coverage: agent permission matrix, business/product/customer/order CRUD + cross-business ownership 404s, order inventory/customer booking and release/reapply across status transitions, revenue recognition, dashboard/top-products/low-stock analytics, the full approval stage→approve/reject→execute pipeline incl. execution-failure handling, mock-AI chat tool dispatch for all six owner-chat intents, and demo-store seeding)*
 
 ### Milestone 10 — Deployment-ready, not yet live *(0.8.0)*
-- Cloud Run is **not the target**: enabling it requires a billing account with an international card even inside the free tier. The pipeline is kept and its two latent bugs fixed; the live deployment goes to Vercel (frontend) + a Hugging Face Space (backend), with Firestore on the free Spark plan, which needs no card
+- Cloud Run is **not the target**: enabling it requires a billing account with an international card even inside the free tier. The pipeline is kept and its two latent bugs fixed; the live deployment goes to Vercel (frontend) + Render's free web service (backend), with Firestore on the free Spark plan, which needs no card. Hugging Face Spaces was tried first and rejected the account with `402 Payment Required` — Docker Spaces on free `cpu-basic` now require PRO, and only static Spaces remain free *(0.8.5)*
 - `backend/Dockerfile` + `.dockerignore` added — build context `backend/`, unprivileged uid 1000, listens on `$PORT`
 - `deployment/cloudbuild.yaml` build context corrected from `.` to `./backend`; it never matched the `COPY` paths in `Dockerfile.backend`, so that image had never built
 - `backend/src/core/credentials.py` — service-account key accepted as an inlined secret for hosts with no metadata server, and the long-dead `GOOGLE_APPLICATION_CREDENTIALS` setting finally exported to the environment where the Google SDKs actually look
