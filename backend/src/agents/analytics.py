@@ -39,18 +39,22 @@ Communication style: Data-driven, precise, insightful.'''
         orders = order_service.list_all([('business_id', '==', self.business_id)])
         if period != 'all':
             from datetime import datetime, timedelta
+            from ..core.clock import as_utc, utcnow
+            # Aware UTC: stored `created_at` values are aware (always so on
+            # Firestore), and comparing them against a naive cutoff raises.
             if period == 'today':
-                cutoff = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+                cutoff = utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
             elif period == '7d':
-                cutoff = datetime.utcnow() - timedelta(days=7)
+                cutoff = utcnow() - timedelta(days=7)
             elif period == '30d':
-                cutoff = datetime.utcnow() - timedelta(days=30)
+                cutoff = utcnow() - timedelta(days=30)
             else:
                 cutoff = None
             if cutoff is not None:
                 orders = [
                     o for o in orders
-                    if isinstance(o.get('created_at'), datetime) and o['created_at'] >= cutoff
+                    if isinstance(o.get('created_at'), datetime)
+                    and as_utc(o['created_at']) >= cutoff
                 ]
         # Only confirmed/processing/shipped/delivered orders count as revenue.
         recognized = [o for o in orders if o.get('status') in REVENUE_STATUSES]
