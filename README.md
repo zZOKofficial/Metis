@@ -96,7 +96,7 @@ METIS combines the affordability of software with the accountability of an emplo
 - **AI:** Google Gemini (raw REST `generateContent` with a function-calling loop)
 - **Database:** Cloud Firestore, with a local **SQLite fallback** (`backend/data/metis.db`) — data survives restarts without any cloud setup
 - **Currency:** each business picks one currency at setup (`GET /api/currencies` for the curated list); every price the agents quote and the UI displays follows it. No FX conversion — a business only ever deals in its own currency
-- **Deployment:** Docker — Vercel (frontend) + Hugging Face Spaces (backend); Cloud Build / Cloud Run config retained
+- **Deployment:** Docker — Vercel (frontend) + Render (backend, `render.yaml`); Cloud Build / Cloud Run config retained
 
 ```
 backend/src/
@@ -236,22 +236,25 @@ METIS is built to run on free tiers, with no billing account anywhere. Cloud Run
 | Piece | Host | Notes |
 |---|---|---|
 | Frontend | Vercel (Hobby) | Root directory `frontend/` |
-| Backend | Hugging Face Space (Docker) | `backend/Dockerfile`, listens on `$PORT` |
+| Backend | Render (free web service) | Declared in `render.yaml`; builds `backend/Dockerfile` |
 | Database | Firestore (Spark) | Free tier; no card |
 | Auth | Firebase Authentication | Email/password |
 
+Hugging Face Spaces was the original plan and does not work: Docker Spaces on free `cpu-basic` now require a PRO subscription (`402 Payment Required`), and only static Spaces remain free. Render's free web service spins down after ~15 minutes idle and takes about a minute to wake, which is the price of the tier.
+
 ### Backend
 
-See [`backend/README.md`](backend/README.md) for the full variable table. The essentials for a hosted deployment:
+Render dashboard → **New → Blueprint** → connect this repo. `render.yaml` supplies the Dockerfile path, the build context, the health check and every non-secret variable; Render prompts for the three marked `sync: false`:
 
 ```bash
-GOOGLE_CLOUD_PROJECT=<firebase-project-id>
-GOOGLE_APPLICATION_CREDENTIALS_JSON=<service-account key, one line>   # secret
-METIS_AUTH_ENABLED=true
-METIS_REQUIRE_FIRESTORE=true
-DEBUG=false
+GOOGLE_APPLICATION_CREDENTIALS_JSON=<service-account key, one line>
+GEMINI_API_KEY=<AI Studio key>
 CORS_ORIGINS=https://<your-app>.vercel.app
 ```
+
+Flatten the key to one line with `python -c "import json;print(json.dumps(json.load(open('key.json'))))"`. It grants admin access to Firestore and bypasses security rules — it belongs in the dashboard, never in the repo.
+
+See [`backend/README.md`](backend/README.md) for the full variable table.
 
 `METIS_REQUIRE_FIRESTORE` matters more than it looks. Without it the app falls back to a local SQLite file whenever Firestore is unreachable — the right behaviour on a laptop, and silently destructive on a container whose filesystem is discarded on restart. `GET /health` reports which database is actually serving and whether auth is being enforced, so a misconfigured deploy is one request away from admitting it.
 

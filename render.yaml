@@ -1,0 +1,55 @@
+# Render Blueprint -- the backend's hosting definition.
+#
+# Declared here rather than filled into dashboard fields by hand, because two
+# of these settings are exactly the kind that fail silently. dockerContext must
+# be ./backend: the Dockerfile does `COPY requirements.txt .`, so pointed at the
+# repo root it would look one directory too high and the build would fail --
+# the same mismatch that meant deployment/cloudbuild.yaml had never built.
+#
+# Deploy: Render dashboard -> New -> Blueprint -> connect this repo.
+# The three `sync: false` values are prompted for at that point and stored by
+# Render; they must never be written into this file.
+
+services:
+  - name: metis-backend
+    type: web
+    runtime: docker
+    plan: free
+    region: singapore                     # nearest region to Bangladesh
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /health
+    envVars:
+      # Setting GOOGLE_CLOUD_PROJECT is what switches the app off SQLite and
+      # onto Firestore; without it the service would run on a filesystem Render
+      # discards on every restart.
+      - key: GOOGLE_CLOUD_PROJECT
+        value: oxyorb-metis
+      - key: FIREBASE_PROJECT_ID
+        value: oxyorb-metis
+
+      # This host is reachable from the internet, so ownership is enforced.
+      - key: METIS_AUTH_ENABLED
+        value: "true"
+
+      # Refuse to fall back to SQLite. On a free instance the container is
+      # replaced on every restart and after every idle spin-down, so a silent
+      # fallback would serve happily and lose every order overnight.
+      - key: METIS_REQUIRE_FIRESTORE
+        value: "true"
+
+      - key: DEBUG
+        value: "false"
+
+      # Entered in the Render dashboard, never committed. The credentials JSON
+      # is the whole service-account key on one line; it grants admin access to
+      # Firestore and bypasses security rules entirely.
+      - key: GOOGLE_APPLICATION_CREDENTIALS_JSON
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+
+      # The Vercel origin, which does not exist until the frontend is deployed.
+      # Accepts either `https://a,https://b` or a JSON array.
+      - key: CORS_ORIGINS
+        sync: false

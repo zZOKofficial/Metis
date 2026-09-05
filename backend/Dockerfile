@@ -1,12 +1,10 @@
-# METIS backend -- container image for Hugging Face Spaces.
+# METIS backend -- container image for Render (see render.yaml at the repo root).
 #
 # Build context is this directory (backend/), not the repo root:
 #   docker build -t metis-backend backend/
 #
 # Kept separate from deployment/Dockerfile.backend, which belongs to the
-# Cloud Run pipeline in deployment/cloudbuild.yaml. A Space is its own git
-# repository and builds the Dockerfile at its root, which is what backend/
-# becomes when it is pushed there as a subtree.
+# Cloud Run pipeline in deployment/cloudbuild.yaml.
 
 FROM python:3.11-slim
 
@@ -17,7 +15,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Spaces run containers unprivileged as uid 1000.
+# Run unprivileged. Nothing here needs root once the dependencies are installed.
 RUN useradd --create-home --uid 1000 metis
 
 WORKDIR /app
@@ -29,13 +27,14 @@ COPY --chown=metis:metis src/ ./src/
 
 ENV PYTHONPATH=/app/src \
     PYTHONUNBUFFERED=1 \
-    PORT=7860
+    PORT=8000
 
-EXPOSE 7860
+EXPOSE 8000
 
 USER metis
 
-# Shell form so $PORT is actually read. deployment/Dockerfile.backend hardcodes
-# --port 8000 while declaring an ENV PORT it never expands, so a host that
-# assigns a port is ignored and nothing ever reaches the app.
-CMD ["sh", "-c", "uvicorn src.main:app --host 0.0.0.0 --port ${PORT:-7860}"]
+# Shell form so $PORT expands. Render assigns the port it expects the service to
+# listen on (10000 by default) and requires binding 0.0.0.0; the fallback is for
+# running the image locally. deployment/Dockerfile.backend hardcoded --port 8000
+# while declaring an ENV PORT it never expanded, so nothing ever reached it.
+CMD ["sh", "-c", "uvicorn src.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

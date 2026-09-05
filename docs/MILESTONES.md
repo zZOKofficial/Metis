@@ -2,7 +2,7 @@
 
 > Build a company, not a science project.
 
-**Last Updated:** 2026-09-05 (METIS 0.8.3)
+**Last Updated:** 2026-09-05 (METIS 0.8.5)
 
 ---
 
@@ -142,6 +142,8 @@
 
 > **0.8.2 (2026-09-05):** The last shared-state leak in Milestone 8. The Gemini key was one `app_state/ai_config` document plus a process-wide `_saved_key`/`_client` pair on the `GeminiService` singleton, so on a shared backend the first owner to save a key paid for every other account's agents, and clearing it cut everyone off. Keys are now per scope: `ai_config:{uid}` for a signed-in owner, the unscoped `ai_config` for an install with no identity, which is what a local single-user setup has always used. Resolution is deliberately narrow -- an owner's own key, else `GEMINI_API_KEY`, which belongs to whoever runs the deployment and is meant to be shared; never another owner's saved key, and never the unscoped document once auth is on, since that one was written by whoever got there first. Clients are cached per key rather than per process, so one owner's client cannot serve another's request. The scope reaches the agents through `BaseAgent.owner_uid`, resolved from the business rather than the caller: an agent spends the shop owner's key, which is what makes the public storefront work at all -- the shopper driving that conversation has no account and no key. `POST /ai/config` and `/ai/config/clear` now require a signed-in caller when auth is on, since an anonymous write to the unscoped document would otherwise set the key everyone spends. No migration: an existing `ai_config` document keeps working for the install that wrote it.
 
+> **0.8.5 (2026-09-05):** Hugging Face Spaces is out, and the plan was wrong rather than the setup. `create_repo(space_sdk='docker')` returns **402 Payment Required** — "Static Spaces are free for everyone, but hosting Gradio and Docker Spaces on free cpu-basic requires a PRO subscription". Only static Spaces are free now, and those cannot run FastAPI; the Docker option being unselectable in the new-Space UI was that gate, not a missing setting. Render's free web service replaces it: a normal container host that builds `backend/Dockerfile` straight from GitHub, so there is no subtree push and no second copy of the code. `render.yaml` declares the deployment rather than leaving it to dashboard fields, because `dockerContext: ./backend` is precisely the setting whose absence had kept `deployment/cloudbuild.yaml` from ever building. `healthCheckPath: /health` turns 0.8.0's Firestore guard into a deploy gate: unusable credentials now fail the release instead of producing a service that runs on a filesystem Render discards. The cost of the tier is a spin-down after ~15 minutes idle and about a minute to wake. The backend `Dockerfile` keeps `$PORT` but defaults to 8000 again rather than Hugging Face's 7860.
+
 ## Milestone 9: Testing ✅ (committed suite)
 **Goal:** Reliable, tested system
 
@@ -179,7 +181,8 @@ Google Cloud Run was the original target and is **not reachable for this project
 - [x] Deployment-safety guard — `METIS_REQUIRE_FIRESTORE`, plus `/health` reporting the live database and auth mode *(0.8.0)*
 - [x] Firebase CLI wiring — `firebase.json` at the repo root points at `deployment/firestore.indexes.json`; without it `firebase deploy --only firestore:indexes` reports "not in a Firebase project directory" and the composite indexes are never created, which the index file's own comment had been recommending since 0.7.5. Security rules are deliberately not declared, so a deploy from this repo can never loosen the default deny-all — the backend uses the Admin SDK, which bypasses rules, and no client touches Firestore directly *(0.8.1)*
 - [x] Firestore composite indexes deployed — all 7 live on `oxyorb-metis`, verified with `firebase firestore:indexes`. The declared `businesses`/`owner_uid` entry had to go: Firestore indexes every single field automatically and rejects a composite declaration of one outright, failing the entire deploy rather than skipping that entry *(0.8.3)*
-- [ ] Backend running on a public URL (Hugging Face Space)
+- [x] Hosting declared as code — `render.yaml` at the repo root: Dockerfile path, build context, health check and every non-secret variable, so none of it depends on a dashboard field being filled in correctly *(0.8.5)*
+- [ ] Backend running on a public URL (Render)
 - [ ] Frontend running on a public URL (Vercel)
 - [ ] Custom domain (optional)
 
